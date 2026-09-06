@@ -1,0 +1,135 @@
+/* Design tokens — owned by Phase 6 (ARCHITECTURE.md §5).
+ * Every component consumes these as CSS variables / Tailwind theme values —
+ * never hardcode hex/px values directly in components.
+ *
+ * Palette rationale: a university collaboration network spans a lot of
+ * disciplines and roles (students, faculty, researchers, startups), so the
+ * palette leans on ink/slate neutrals — steady, legible, not trend-driven —
+ * with a single warm accent (amber/brass) used sparingly for the things
+ * that matter most (primary actions, verification, active state). Avoids
+ * both the "warm cream + terracotta" and "near-black + acid accent" defaults.
+ */
+
+:root {
+  /* Base neutrals (ink/slate scale) */
+  --color-ink-950: #0f1419;
+  --color-ink-900: #171d26;
+  --color-ink-800: #232b38;
+  --color-ink-700: #333e4f;
+  --color-ink-600: #4a5568;
+  --color-ink-500: #6b7789;
+  --color-ink-400: #94a1b3;
+  --color-ink-300: #c1cad6;
+  --color-ink-200: #dfe4ea;
+  --color-ink-100: #eef1f5;
+  --color-ink-50: #f7f8fa;
+
+  /* Accent — brass/amber, used for primary actions & emphasis only */
+  --color-accent-700: #92600a;
+  --color-accent-600: #b3790f;
+  --color-accent-500: #d99b2b;
+  --color-accent-400: #e8b558;
+  --color-accent-100: #faedd2;
+
+  /* Semantic status colors */
+  --color-success-600: #1a7f4e;
+  --color-success-100: #dcf3e6;
+  --color-warning-600: #b3760f;
+  --color-warning-100: #fbecd0;
+  --color-danger-600: #c23b3b;
+  --color-danger-100: #f9dede;
+  --color-info-600: #2563a8;
+  --color-info-100: #dcebf9;
+
+  /* Semantic surface roles — light mode */
+  --surface-canvas: var(--color-ink-50);
+  --surface-raised: #ffffff;
+  --surface-sunken: var(--color-ink-100);
+  --surface-overlay: rgba(15, 20, 25, 0.5);
+  --border-default: var(--color-ink-200);
+  --border-strong: var(--color-ink-300);
+  --text-primary: var(--color-ink-900);
+  --text-secondary: var(--color-ink-600);
+  --text-muted: var(--color-ink-500);
+  --text-on-accent: #ffffff;
+  --text-inverse: var(--color-ink-50);
+  --focus-ring: var(--color-accent-500);
+
+  /* Type scale */
+  --font-sans:
+    "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: "Source Serif 4", ui-serif, Georgia, serif;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2.25rem;
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.7;
+
+  /* Spacing scale (4px base) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* Radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-full: 9999px;
+
+  /* Shadow */
+  --shadow-sm: 0 1px 2px rgba(15, 20, 25, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 20, 25, 0.08);
+  --shadow-lg: 0 12px 32px rgba(15, 20, 25, 0.12);
+
+  /* Motion */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Breakpoints (referenced in tailwind.config.js; documented here per
+     ARCHITECTURE.md — Tailwind doesn't support var()-based breakpoints,
+     so these are duplicated as literal values in the Tailwind config). */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+}
+
+/* Dark mode: class-based (`.dark` on <html>), not prefers-color-scheme-only,
+   so the toggle in AppLayout can override the OS setting explicitly. */
+.dark {
+  --surface-canvas: var(--color-ink-950);
+  --surface-raised: var(--color-ink-900);
+  --surface-sunken: var(--color-ink-800);
+  --surface-overlay: rgba(0, 0, 0, 0.6);
+  --border-default: var(--color-ink-700);
+  --border-strong: var(--color-ink-600);
+  --text-primary: var(--color-ink-50);
+  --text-secondary: var(--color-ink-300);
+  --text-muted: var(--color-ink-400);
+  --text-inverse: var(--color-ink-900);
+  --focus-ring: var(--color-accent-400);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
