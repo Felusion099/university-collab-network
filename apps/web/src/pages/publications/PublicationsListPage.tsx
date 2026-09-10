@@ -63,9 +63,7 @@ export default function PublicationsListPage(): JSX.Element {
                 className="block rounded-lg border border-border bg-raised p-4 transition-colors hover:border-accent-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]"
               >
                 <p className="font-medium text-text-primary">{pub.title}</p>
-                <p className="mt-0.5 text-sm text-text-secondary">
-                  {pub.authorNames.join(", ")}
-                </p>
+                <p className="mt-0.5 text-sm text-text-secondary">{pub.authorNames.join(", ")}</p>
                 <p className="mt-1 text-xs text-text-muted">
                   {[pub.journalOrConference, pub.publishedDate && formatDate(pub.publishedDate)]
                     .filter(Boolean)

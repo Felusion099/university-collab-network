@@ -44,7 +44,10 @@ export default function ResearchListPage(): JSX.Element {
                 title={topic.name}
                 description={topic.description}
                 stats={[
-                  { icon: Users, label: `${topic.teamCount} team${topic.teamCount === 1 ? "" : "s"}` },
+                  {
+                    icon: Users,
+                    label: `${topic.teamCount} team${topic.teamCount === 1 ? "" : "s"}`,
+                  },
                   {
                     icon: BookOpen,
                     label: `${topic.publicationCount} publication${topic.publicationCount === 1 ? "" : "s"}`,

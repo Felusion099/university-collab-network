@@ -45,9 +45,10 @@ export const discoverApi = {
       directoryApi.list({ role: "professor", limit: 2 }),
       directoryApi.list({ role: "researcher", limit: 2 }),
     ]);
-    const people = [...students.data, ...professors.data, ...researchers.data].map(
-      (u, i) => ({ ...u, reason: MOCK_REASONS[i % MOCK_REASONS.length]! }),
-    );
+    const people = [...students.data, ...professors.data, ...researchers.data].map((u, i) => ({
+      ...u,
+      reason: MOCK_REASONS[i % MOCK_REASONS.length]!,
+    }));
     return {
       people,
       projects: [],

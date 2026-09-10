@@ -42,9 +42,7 @@ export default function OpportunityDetailPage(): JSX.Element {
         </div>
       )}
 
-      {isError && (
-        <ErrorState title="Couldn't load this opportunity" onRetry={() => refetch()} />
-      )}
+      {isError && <ErrorState title="Couldn't load this opportunity" onRetry={() => refetch()} />}
 
       {!isLoading && !isError && !opportunity && (
         <EmptyState icon={Briefcase} title="Opportunity not found" />
@@ -54,12 +52,9 @@ export default function OpportunityDetailPage(): JSX.Element {
         <div className="space-y-6">
           <div>
             <span className="inline-flex w-fit items-center rounded-full bg-accent-100 px-2.5 py-0.5 text-xs font-medium text-accent-700">
-              {OPPORTUNITY_TYPE_LABEL[opportunity.opportunityType] ??
-                opportunity.opportunityType}
+              {OPPORTUNITY_TYPE_LABEL[opportunity.opportunityType] ?? opportunity.opportunityType}
             </span>
-            <h1 className="mt-2 text-xl font-semibold text-text-primary">
-              {opportunity.title}
-            </h1>
+            <h1 className="mt-2 text-xl font-semibold text-text-primary">{opportunity.title}</h1>
           </div>
 
           <div className="flex flex-col gap-2 text-sm text-text-primary">

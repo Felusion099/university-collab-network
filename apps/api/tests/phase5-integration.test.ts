@@ -392,7 +392,8 @@ describe("Phase 5 - Complete API Endpoints Integration Test Suite", () => {
       // previously embedded every interested user's full raw role-profile
       // (cgpa included, default-private) unfiltered — must never leak cgpa
       // to this anonymous caller now, nor password_hash on any nested user.
-      const alice = detail.students.find((s: { id: string }) => s.id === userAId); console.log("D019 ALICE RESPONSE:", JSON.stringify(alice, null, 2));
+      const alice = detail.students.find((s: { id: string }) => s.id === userAId);
+      console.log("D019 ALICE RESPONSE:", JSON.stringify(alice, null, 2));
       if (alice?.profile) {
         assert.equal(
           "cgpa" in alice.profile,
@@ -905,9 +906,12 @@ describe("Phase 5 - Complete API Endpoints Integration Test Suite", () => {
         },
       });
 
-      const resList = await fetch(`${baseUrl}/api/v1/admin/verifications?status=pending&limit=100`, {
-        headers: { Authorization: `Bearer ${adminToken}` },
-      });
+      const resList = await fetch(
+        `${baseUrl}/api/v1/admin/verifications?status=pending&limit=100`,
+        {
+          headers: { Authorization: `Bearer ${adminToken}` },
+        },
+      );
       assert.equal(resList.status, 200);
       const verificationsJson = (await resList.json()) as { data: ApiJson[] };
       const pendingEntry = verificationsJson.data.find((v) => v.id === verification.id);
@@ -976,17 +980,3 @@ describe("Phase 5 - Complete API Endpoints Integration Test Suite", () => {
     });
   });
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-

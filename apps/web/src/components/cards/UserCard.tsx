@@ -61,9 +61,7 @@ export function UserCard({
             <p className="truncate font-medium text-text-primary">{user.fullName}</p>
             <VerificationBadge verified={user.isUniversityVerified} />
           </div>
-          {user.headline && (
-            <p className="truncate text-sm text-text-secondary">{user.headline}</p>
-          )}
+          {user.headline && <p className="truncate text-sm text-text-secondary">{user.headline}</p>}
         </div>
       </div>
       {user.topSkills.length > 0 && (

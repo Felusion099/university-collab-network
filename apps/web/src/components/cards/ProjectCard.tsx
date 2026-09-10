@@ -32,9 +32,7 @@ export function ProjectCard({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate font-medium text-text-primary">{project.name}</p>
-          <p className="mt-0.5 line-clamp-2 text-sm text-text-secondary">
-            {project.description}
-          </p>
+          <p className="mt-0.5 line-clamp-2 text-sm text-text-secondary">{project.description}</p>
         </div>
         {project.logoUrl && (
           <img

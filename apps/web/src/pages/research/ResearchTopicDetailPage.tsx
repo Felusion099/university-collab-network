@@ -37,9 +37,7 @@ export default function ResearchTopicDetailPage(): JSX.Element {
           <div>
             <h1 className="text-xl font-semibold text-text-primary">{topic.name}</h1>
             {topic.parentTopicName && (
-              <p className="mt-0.5 text-sm text-text-secondary">
-                Part of {topic.parentTopicName}
-              </p>
+              <p className="mt-0.5 text-sm text-text-secondary">Part of {topic.parentTopicName}</p>
             )}
           </div>
           {topic.description && <p className="text-sm text-text-primary">{topic.description}</p>}

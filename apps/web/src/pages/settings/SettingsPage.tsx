@@ -29,8 +29,12 @@ const NOTIFICATION_LABELS: Record<keyof NotificationPreferences, string> = {
  * "(incl. privacy)" note on this route.
  */
 export default function SettingsPage(): JSX.Element {
-  const { data: privacy, isLoading: privacyLoading, isError: privacyError, refetch: refetchPrivacy } =
-    usePrivacySettings();
+  const {
+    data: privacy,
+    isLoading: privacyLoading,
+    isError: privacyError,
+    refetch: refetchPrivacy,
+  } = usePrivacySettings();
   const updatePrivacy = useUpdatePrivacySettings();
 
   const {
@@ -69,25 +73,24 @@ export default function SettingsPage(): JSX.Element {
         </p>
         {notifLoading && <Skeleton className="h-64 w-full rounded-lg" />}
         {notifError && (
-          <ErrorState title="Couldn't load notification preferences" onRetry={() => refetchNotif()} />
+          <ErrorState
+            title="Couldn't load notification preferences"
+            onRetry={() => refetchNotif()}
+          />
         )}
         {notificationPrefs && (
           <div className="space-y-3">
-            {(Object.keys(NOTIFICATION_LABELS) as (keyof NotificationPreferences)[]).map(
-              (key) => (
-                <label key={key} className="flex items-center justify-between gap-4">
-                  <span className="text-sm text-text-primary">{NOTIFICATION_LABELS[key]}</span>
-                  <input
-                    type="checkbox"
-                    checked={notificationPrefs[key]}
-                    onChange={(e) =>
-                      updateNotifPrefs.mutate({ [key]: e.target.checked })
-                    }
-                    className="h-4 w-4 rounded border-border text-accent-600 focus:ring-[var(--focus-ring)]"
-                  />
-                </label>
-              ),
-            )}
+            {(Object.keys(NOTIFICATION_LABELS) as (keyof NotificationPreferences)[]).map((key) => (
+              <label key={key} className="flex items-center justify-between gap-4">
+                <span className="text-sm text-text-primary">{NOTIFICATION_LABELS[key]}</span>
+                <input
+                  type="checkbox"
+                  checked={notificationPrefs[key]}
+                  onChange={(e) => updateNotifPrefs.mutate({ [key]: e.target.checked })}
+                  className="h-4 w-4 rounded border-border text-accent-600 focus:ring-[var(--focus-ring)]"
+                />
+              </label>
+            ))}
           </div>
         )}
       </section>

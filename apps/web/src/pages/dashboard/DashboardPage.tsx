@@ -43,9 +43,7 @@ export default function DashboardPage(): JSX.Element {
               description="Connect with people or join a project to see activity here."
             />
           )}
-          {!activityLoading && activity && activity.length > 0 && (
-            <Timeline entries={activity} />
-          )}
+          {!activityLoading && activity && activity.length > 0 && <Timeline entries={activity} />}
         </section>
 
         <section>

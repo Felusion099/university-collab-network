@@ -44,7 +44,11 @@ export async function removeFromSelf(
   }
 }
 
-export async function addSkillToSelf(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function addSkillToSelf(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   try {
     const { skillId, proficiency } = req.body as {
       skillId: string;

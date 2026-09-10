@@ -38,9 +38,7 @@ export default function PublicationDetailPage(): JSX.Element {
         <div className="space-y-6">
           <div>
             <h1 className="text-xl font-semibold text-text-primary">{publication.title}</h1>
-            <p className="mt-1 text-sm text-text-secondary">
-              {publication.authorNames.join(", ")}
-            </p>
+            <p className="mt-1 text-sm text-text-secondary">{publication.authorNames.join(", ")}</p>
             <p className="mt-1 text-xs text-text-muted">
               {[
                 publication.journalOrConference,

@@ -19,11 +19,7 @@ router.patch(
 
 router.get("/me/privacy", requireAuth, profileController.getOwnPrivacy);
 
-router.post(
-  "/me/skills",
-  requireAuth,
-  skillController.addSkillToSelf,
-);
+router.post("/me/skills", requireAuth, skillController.addSkillToSelf);
 
 router.patch(
   "/me/privacy",

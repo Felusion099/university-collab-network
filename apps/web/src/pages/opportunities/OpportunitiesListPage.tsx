@@ -55,9 +55,7 @@ export default function OpportunitiesListPage(): JSX.Element {
             </div>
           )}
 
-          {isError && (
-            <ErrorState title="Couldn't load opportunities" onRetry={() => refetch()} />
-          )}
+          {isError && <ErrorState title="Couldn't load opportunities" onRetry={() => refetch()} />}
 
           {!isLoading && !isError && opportunities.length === 0 && (
             <EmptyState

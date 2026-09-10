@@ -1,7 +1,4 @@
-import type {
-  PrivacySettings,
-  NotificationPreferences,
-} from "@app/shared-types";
+import type { PrivacySettings, NotificationPreferences } from "@app/shared-types";
 
 /**
  * Backs /settings. Unlike most services/api/*.ts files this phase, the

@@ -30,19 +30,10 @@ let failed = false;
 for (const test of tests) {
   console.log(`\n===== RUNNING ${test} =====`);
 
-  const result = spawnSync(
-    process.execPath,
-    [
-      "--import",
-      "tsx",
-      "--test",
-      test
-    ],
-    {
-      stdio: "inherit",
-      shell: false
-    }
-  );
+  const result = spawnSync(process.execPath, ["--import", "tsx", "--test", test], {
+    stdio: "inherit",
+    shell: false,
+  });
 
   if (result.status !== 0) {
     failed = true;

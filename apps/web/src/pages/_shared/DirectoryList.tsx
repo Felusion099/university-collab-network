@@ -46,10 +46,7 @@ export function DirectoryList({
       )}
 
       {isError && (
-        <ErrorState
-          title={`Couldn't load ${title.toLowerCase()}`}
-          onRetry={() => refetch()}
-        />
+        <ErrorState title={`Couldn't load ${title.toLowerCase()}`} onRetry={() => refetch()} />
       )}
 
       {!isLoading && !isError && people.length === 0 && (

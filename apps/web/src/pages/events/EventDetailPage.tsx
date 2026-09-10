@@ -42,9 +42,7 @@ export default function EventDetailPage(): JSX.Element {
 
       {isError && <ErrorState title="Couldn't load this event" onRetry={() => refetch()} />}
 
-      {!isLoading && !isError && !event && (
-        <EmptyState icon={CalendarX} title="Event not found" />
-      )}
+      {!isLoading && !isError && !event && <EmptyState icon={CalendarX} title="Event not found" />}
 
       {!isLoading && !isError && event && (
         <div className="space-y-6">
@@ -79,9 +77,7 @@ export default function EventDetailPage(): JSX.Element {
             )}
           </div>
 
-          {event.description && (
-            <p className="text-sm text-text-primary">{event.description}</p>
-          )}
+          {event.description && <p className="text-sm text-text-primary">{event.description}</p>}
 
           {event.registrationUrl && (
             <a

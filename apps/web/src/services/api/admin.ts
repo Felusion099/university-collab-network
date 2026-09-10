@@ -119,10 +119,7 @@ export const adminApi = {
     return reports.filter((r) => r.status === status);
   },
 
-  updateReport: async (
-    id: string,
-    action: Report["action"],
-  ): Promise<Report | null> => {
+  updateReport: async (id: string, action: Report["action"]): Promise<Report | null> => {
     await new Promise((resolve) => setTimeout(resolve, 250));
     const item = reports.find((r) => r.id === id);
     if (!item) return null;

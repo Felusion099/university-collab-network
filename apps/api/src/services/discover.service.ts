@@ -1,9 +1,9 @@
 import { prisma } from "../repositories/prisma.js";
 
 /**
- * Personalized, query-less recommendation feed per API_CONTRACT.md §8 —
- * "same shape as §4 search response... every item includes a reason
- * string" (spec §23: explain why recommendations appear). MVP heuristic:
+ * Personalized, query-less recommendation feed per API_CONTRACT.md ï¿½8 ï¿½
+ * "same shape as ï¿½4 search response... every item includes a reason
+ * string" (spec ï¿½23: explain why recommendations appear). MVP heuristic:
  * recommend projects/opportunities/research topics that overlap with the
  * user's own declared skills/research-topic interests, and people who
  * share a research topic.

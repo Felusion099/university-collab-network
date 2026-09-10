@@ -19,10 +19,7 @@ export default function LoginPage(): JSX.Element {
 
   function handleSubmit(e: FormEvent): void {
     e.preventDefault();
-    login.mutate(
-      { email, password },
-      { onSuccess: () => navigate(from, { replace: true }) },
-    );
+    login.mutate({ email, password }, { onSuccess: () => navigate(from, { replace: true }) });
   }
 
   const errorMessage =

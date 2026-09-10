@@ -51,7 +51,10 @@ export function Sidebar({ className }: { className?: string }): JSX.Element {
   return (
     <nav
       aria-label="Main"
-      className={cn("flex flex-col gap-1 overflow-y-auto border-r border-border bg-raised p-3", className)}
+      className={cn(
+        "flex flex-col gap-1 overflow-y-auto border-r border-border bg-raised p-3",
+        className,
+      )}
     >
       {NAV_ITEMS.map(({ to, label, icon: Icon }) => (
         <NavLink

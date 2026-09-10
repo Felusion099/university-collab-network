@@ -48,10 +48,7 @@ export default function NotificationsPage(): JSX.Element {
       )}
 
       {!isLoading && !isError && notifications && notifications.length > 0 && (
-        <NotificationPanel
-          notifications={notifications}
-          onMarkRead={(id) => markRead.mutate(id)}
-        />
+        <NotificationPanel notifications={notifications} onMarkRead={(id) => markRead.mutate(id)} />
       )}
     </div>
   );
