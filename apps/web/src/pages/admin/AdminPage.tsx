@@ -108,11 +108,22 @@ function VerificationsSection(): JSX.Element {
               key={v.id}
               className="flex items-center justify-between gap-3 rounded-lg border border-border bg-raised p-3"
             >
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm font-medium text-text-primary">{v.userName}</p>
                 <p className="text-xs text-text-muted">
-                  Requesting {v.requestedRole.replace("_", " ")} · {formatDate(v.submittedAt)}
+                  Requesting {v.requestedRole.replace("_", " ")}
+                  {v.userEmail ? ` · ${v.userEmail}` : ""} · {formatDate(v.submittedAt)}
                 </p>
+                {v.evidenceUrl && (
+                  <a
+                    href={v.evidenceUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-0.5 inline-block text-xs text-accent-600 hover:text-accent-700"
+                  >
+                    View evidence ↗
+                  </a>
+                )}
               </div>
               <div className="flex gap-2">
                 <button
@@ -181,7 +192,7 @@ function ReportsSection(): JSX.Element {
             <button
               type="button"
               onClick={confirmPendingAction}
-              className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              className="rounded-md bg-accent-600 px-3 py-1.5 text-sm font-medium text-text-onAccent transition-colors hover:bg-accent-700"
             >
               Confirm
             </button>

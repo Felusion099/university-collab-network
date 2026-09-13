@@ -28,7 +28,7 @@ export default function ResearchTeamsListPage(): JSX.Element {
           <button
             type="button"
             onClick={() => setIsCreateOpen(true)}
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="inline-flex items-center gap-2 rounded-md bg-accent-600 px-4 py-2 text-sm font-medium text-text-onAccent transition-colors hover:bg-accent-700"
           >
             <Plus className="h-4 w-4" />
             Create Team
@@ -82,7 +82,7 @@ export default function ResearchTeamsListPage(): JSX.Element {
       )}
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-lg bg-surface p-6 shadow-xl">
+          <div className="w-full max-w-md rounded-lg bg-raised p-6 shadow-xl">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-text-primary">Create Research Team</h2>
               <button
@@ -135,7 +135,7 @@ function CreateResearchTeamForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
+        <div className="rounded-md bg-danger-100 p-3 text-sm text-danger-600">{error}</div>
       )}
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-text-primary mb-1">
@@ -146,7 +146,7 @@ function CreateResearchTeamForm({
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-ring"
+          className="w-full rounded-md border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-500"
           placeholder="e.g., Computational Biology Lab"
           required
           disabled={isSubmitting}
@@ -161,7 +161,7 @@ function CreateResearchTeamForm({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-ring"
+          className="w-full rounded-md border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-500"
           placeholder="Brief description of the research team..."
           disabled={isSubmitting}
         />
@@ -178,7 +178,7 @@ function CreateResearchTeamForm({
         <button
           type="submit"
           disabled={isSubmitting || !name.trim()}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+          className="rounded-md bg-accent-600 px-4 py-2 text-sm font-medium text-text-onAccent transition-colors hover:bg-accent-700 disabled:opacity-50"
         >
           {isSubmitting ? "Creating..." : "Create Team"}
         </button>

@@ -1,7 +1,7 @@
 import { prisma } from "../repositories/prisma.js";
 import { userRepository } from "../repositories/user.repository.js";
 import { privacyService } from "./privacy.service.js";
-import { NotFoundError } from "../utils/errors.js";
+import { NotFoundError, ForbiddenError } from "../utils/errors.js";
 import type { ViewerContext } from "./privacy.service.js";
 import type {
   UpdateProfileRequest,
@@ -321,6 +321,96 @@ export async function removeOwnInterest(userId: string, topicId: string) {
     where: { userId, researchTopicId: topicId },
   });
   return { topicId, removed: true };
+}
+
+/**
+ * Profile verification — request/status using the EXISTING Verification
+ * model (userId, roleClaimed unique-pair, status, evidenceUrl) and the
+ * existing admin review workflow (requireRole(["admin"]) approve/reject).
+ * A user can only REQUEST; self-approval is impossible — the status is
+ * server-authoritative.
+ */
+// Roles that map to a VerificationRoleClaim — student/alumni are
+// auto-granted (D-003: no verification lookup) and rely on university
+// email verification instead, so no role claim exists for them.
+const VERIFIABLE_ROLES = ["professor", "researcher", "club_rep", "startup_member", "admin"];
+
+export async function getOwnVerificationStatus(userId: string) {
+  const user = await userRepository.findByIdLean(userId);
+  if (!user) throw new NotFoundError("User not found");
+  const verifiable = VERIFIABLE_ROLES.includes(user.requestedRole);
+  const [request, isUniversityVerified] = await Promise.all([
+    verifiable
+      ? prisma.verification.findUnique({
+          where: {
+            userId_roleClaimed: {
+              userId,
+              roleClaimed: user.requestedRole as "professor" | "researcher" | "club_rep" | "startup_member" | "admin",
+            },
+          },
+        })
+      : Promise.resolve(null),
+    prisma.user.findUnique({ where: { id: userId }, select: { isUniversityVerified: true } }),
+  ]);
+  return {
+    role: user.requestedRole,
+    isUniversityVerified: isUniversityVerified?.isUniversityVerified ?? false,
+    verificationAvailable: verifiable,
+    request: request
+      ? {
+          id: request.id,
+          roleClaimed: request.roleClaimed,
+          status: request.status,
+          evidenceUrl: request.evidenceUrl ?? null,
+          submittedAt: request.createdAt.toISOString(),
+          reviewedAt: request.updatedAt.toISOString(),
+        }
+      : null,
+  };
+}
+
+export async function requestVerification(
+  userId: string,
+  input: { roleClaimed?: string; evidenceUrl?: string },
+) {
+  const user = await userRepository.findByIdLean(userId);
+  if (!user) throw new NotFoundError("User not found");
+
+  // The role claimed defaults to the caller's own requestedRole — users
+  // cannot claim a different role through this flow (role changes remain
+  // an admin decision per the existing authorization model).
+  const roleClaimed = (input.roleClaimed ?? user.requestedRole) as
+    | "professor"
+    | "researcher"
+    | "club_rep"
+    | "startup_member"
+    | "admin";
+  if (!VERIFIABLE_ROLES.includes(roleClaimed)) {
+    throw new ForbiddenError(
+      "This role is verified through your institutional email — no verification request is needed",
+    );
+  }
+
+  const existing = await prisma.verification.findUnique({
+    where: { userId_roleClaimed: { userId, roleClaimed } },
+  });
+  if (existing && existing.status === "pending") {
+    return { alreadyPending: true, request: existing };
+  }
+  if (existing && existing.status === "approved") {
+    return { alreadyApproved: true, request: existing };
+  }
+
+  const request = existing
+    ? await prisma.verification.update({
+        where: { id: existing.id },
+        data: { status: "pending", evidenceUrl: input.evidenceUrl ?? null },
+      })
+    : await prisma.verification.create({
+        data: { userId, roleClaimed, status: "pending", evidenceUrl: input.evidenceUrl ?? null },
+      });
+
+  return { submitted: true, request };
 }
 
 export async function updateOwnProfile(userId: string, input: UpdateProfileRequest) {

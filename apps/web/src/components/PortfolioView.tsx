@@ -198,7 +198,7 @@ export function PortfolioView({
               action={
                 <Link
                   to="/projects"
-                  className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-accent-600 px-3 py-1.5 text-sm font-medium text-text-onAccent hover:bg-accent-700"
                 >
                   Browse projects <ArrowRight className="h-3.5 w-3.5" />
                 </Link>

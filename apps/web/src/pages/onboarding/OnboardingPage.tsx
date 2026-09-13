@@ -1,30 +1,48 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Check, ChevronRight, SkipForward, Sparkles } from "lucide-react";
-import type { UserRole } from "@app/shared-types";
+import { ArrowLeft, Check, ChevronRight, SkipForward, Sparkles, X } from "lucide-react";
+import type { UserRole, UserProfileResponse } from "@app/shared-types";
 import { useMe, useCompleteOnboarding, useUpdateOwnProfile } from "@/hooks/useMe";
-import { useSessionStore } from "@/stores/session.store";
-import { apiFetch } from "@/services/api/client";
-import { ApiError } from "@/services/api/client";
+import { apiFetch, ApiError } from "@/services/api/client";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
 
 /**
  * OnboardingPage — the role-aware, progressive, resumable new-user
- * onboarding. Steps adapt to the existing UserRole (no onboarding-role
- * enum): basic identity → about → skills → research interests → existing
- * work (derived, read-only) → preview → done. Existing profile data is
- * prefilled, never re-asked; optional steps are skippable; completion is
- * marked via users.onboarding_completed_at (POST /users/me/onboarding/
- * complete). Resume detection lives in AppLayout's OnboardingGuard.
+ * profile builder. One authoritative completion marker
+ * (users.onboarding_completed_at) — completing twice is impossible
+ * (the service only sets it once) and the AppLayout guard only
+ * redirects while it is unset.
+ *
+ * Draft state lives at THIS component level (single `draft` object), so
+ * Back/forward between steps never loses entered values and never
+ * duplicates submissions — each step saves via idempotent upserts
+ * (PATCH /users/me/profile, POST /skills + POST /skills/:id/self with
+ * client-side dedupe, POST /users/me/interests with composite-PK
+ * upsert).
  */
-const STEP_LABELS = ["Welcome", "About you", "Skills", "Interests", "Your work", "Preview"];
+const STEPS = ["Welcome", "About you", "Skills", "Interests", "Your work", "Preview"] as const;
+
+interface Draft {
+  bio: string;
+  department: string;
+  fullName: string;
+  headlineFields: {
+    course: string;
+    year: string;
+    designation: string;
+    expertise: string;
+  };
+  skills: string[];
+  topics: { id: string; name: string; slug: string }[];
+}
 
 export default function OnboardingPage(): JSX.Element {
   const { data: me, isLoading, isError, refetch } = useMe();
   const complete = useCompleteOnboarding();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
+  const [draft, setDraft] = useState<Draft | null>(null);
 
   if (isLoading) {
     return (
@@ -39,68 +57,94 @@ export default function OnboardingPage(): JSX.Element {
     return <ErrorState title="Couldn't load your profile" onRetry={() => refetch()} />;
   }
 
-  const handleDone = () => {
-    complete.mutate(undefined, {
-      onSuccess: () => navigate("/dashboard"),
+  const profile = me.studentProfile ?? me.professorProfile ?? me.researcherProfile;
+  const fullName = profile?.fullName ?? "there";
+
+  if (draft === null) {
+    setDraft({
+      bio: profile?.bio ?? "",
+      department:
+        me.studentProfile?.department ??
+        me.professorProfile?.department ??
+        me.researcherProfile?.department ??
+        "",
+      fullName,
+      headlineFields: {
+        course: me.studentProfile?.course ?? "",
+        year: me.studentProfile?.year !== null && me.studentProfile?.year !== undefined ? String(me.studentProfile.year) : "",
+        designation: me.professorProfile?.designation ?? "",
+        expertise: (me.professorProfile?.expertise ?? []).join(", "),
+      },
+      skills: (me.portfolio?.skills ?? []).map((s) => s.name),
+      topics: (me.portfolio?.researchTopics ?? []).map((t) => ({ id: t.id, name: t.name, slug: t.slug })),
     });
-  };
+    return <div className="mx-auto max-w-xl"><Skeleton className="h-32 w-full" /></div>;
+  }
+
+  const back = () => (step === 0 ? navigate("/dashboard") : setStep(step - 1));
 
   return (
     <div className="mx-auto max-w-xl space-y-6">
-      {/* Progress */}
-      <div className="flex items-center gap-1.5">
-        {STEP_LABELS.map((label, i) => (
-          <div key={label} className="flex flex-1 items-center gap-1.5">
+      {/* Progress indicator */}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={back}
+          aria-label="Back"
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm text-text-secondary transition-colors hover:bg-sunken hover:text-text-primary"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
+        <div className="flex flex-1 items-center gap-1.5">
+          {STEPS.map((_, i) => (
             <div
-              className={`h-1.5 flex-1 rounded-full ${i <= step ? "bg-accent-500" : "bg-sunken"}`}
+              key={i}
+              className={`h-1.5 flex-1 rounded-full transition-colors ${i <= step ? "bg-accent-500" : "bg-sunken"}`}
             />
-          </div>
-        ))}
+          ))}
+        </div>
+        <span className="text-xs text-text-muted">
+          {step + 1} of {STEPS.length}
+        </span>
       </div>
-      <p className="text-xs text-text-muted">
-        Step {step + 1} of {STEP_LABELS.length} — {STEP_LABELS[step]}
-      </p>
 
-      {step === 0 && <WelcomeStep role={me.role} name={me.studentProfile?.fullName ?? me.professorProfile?.fullName ?? me.researcherProfile?.fullName ?? "there"} onNext={() => setStep(1)} />}
-      {step === 1 && <AboutStep me={me} onNext={() => setStep(2)} />}
-      {step === 2 && <SkillsStep me={me} onNext={() => setStep(3)} onSkip={() => setStep(3)} />}
-      {step === 3 && <InterestsStep me={me} onNext={() => setStep(4)} onSkip={() => setStep(4)} />}
-      {step === 4 && <ExistingWorkStep me={me} onNext={() => setStep(5)} onSkip={() => setStep(5)} />}
-      {step === 5 && <PreviewStep me={me} onDone={handleDone} onBack={() => setStep(4)} />}
+      {step === 0 && <WelcomeStep role={me.role} name={fullName} onNext={() => setStep(1)} />}
+      {step === 1 && <AboutStep me={me} draft={draft} setDraft={setDraft} onNext={() => setStep(2)} />}
+      {step === 2 && <SkillsStep me={me} draft={draft} setDraft={setDraft} onNext={() => setStep(3)} />}
+      {step === 3 && <InterestsStep draft={draft} setDraft={setDraft} onNext={() => setStep(4)} />}
+      {step === 4 && <ExistingWorkStep me={me} onNext={() => setStep(5)} />}
+      {step === 5 && (
+        <PreviewStep me={me} draft={draft} onDone={() => complete.mutate(undefined, { onSuccess: () => navigate("/dashboard") })} onBack={() => setStep(4)} saving={complete.isPending} />
+      )}
     </div>
   );
 }
 
-function WelcomeStep({
-  role,
-  name,
-  onNext,
-}: {
-  role: UserRole;
-  name: string;
-  onNext: () => void;
-}) {
-  const focus = ROLE_FOCUS[role];
+/* ============================================================
+ * STEP 1 — Welcome / identity
+ * ============================================================ */
+function WelcomeStep({ role, name, onNext }: { role: UserRole; name: string; onNext: () => void }) {
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-2">
         <Sparkles className="h-6 w-6 text-accent-600" aria-hidden="true" />
-        <h1 className="text-2xl font-semibold text-text-primary">Welcome, {name}</h1>
+        <h1 className="text-2xl font-semibold text-text-primary">Let's build your profile, {name}</h1>
       </div>
       <p className="text-sm leading-relaxed text-text-secondary">
-        This platform connects your university's students, professors, researchers, projects, and
-        research — and builds a living portfolio for you as you use it. Everything you join, create,
-        or publish here shows up on your portfolio automatically.
+        This is your university portfolio — it tells people who you are, what you know, and what
+        you're working on. Everything you join, create, or publish here shows up on it
+        automatically. You can edit all of this later.
       </p>
       <div className="rounded-lg border border-border bg-raised p-4 text-sm text-text-secondary">
         <p className="mb-1 font-medium text-text-primary">As a {role}, we'll focus on:</p>
         <ul className="list-inside list-disc space-y-1">
-          {focus.map((f) => (
+          {ROLE_FOCUS[role].map((f) => (
             <li key={f}>{f}</li>
           ))}
         </ul>
       </div>
-      <StepActions onNext={onNext} nextLabel="Get started" onSkip={onNext} skipLabel="Skip intro" />
+      <StepActions onNext={onNext} nextLabel="Get started" />
     </div>
   );
 }
@@ -127,38 +171,56 @@ const ROLE_FOCUS: Record<UserRole, string[]> = {
   admin: ["Platform overview and administration"],
 };
 
+/* ============================================================
+ * STEP 2 — Basic profile (name, department, role-specific fields, bio)
+ * ============================================================ */
 function AboutStep({
   me,
+  draft,
+  setDraft,
   onNext,
 }: {
-  me: NonNullable<ReturnType<typeof useMe>["data"]>;
+  me: UserProfileResponse;
+  draft: Draft;
+  setDraft: (d: Draft) => void;
   onNext: () => void;
 }) {
   const updateProfile = useUpdateOwnProfile();
-  const profile = me.studentProfile ?? me.professorProfile ?? me.researcherProfile;
-  const [bio, setBio] = useState(profile?.bio ?? "");
-  const [department, setDepartment] = useState(
-    me.studentProfile?.department ?? me.professorProfile?.department ?? me.researcherProfile?.department ?? "",
-  );
-  const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const save = async (advance: boolean) => {
+  const save = async () => {
     setSaving(true);
     setError(null);
     try {
       const input: Record<string, unknown> = {};
+      const roleProfile: Record<string, unknown> = {
+        bio: draft.bio.trim() || null,
+        department: draft.department.trim() || null,
+        fullName: draft.fullName.trim() || undefined,
+      };
       if (me.studentProfile) {
-        input.studentProfile = { bio: bio.trim() || null, department: department.trim() || null };
+        input.studentProfile = {
+          ...roleProfile,
+          course: draft.headlineFields.course.trim() || null,
+          year: draft.headlineFields.year.trim() ? Number(draft.headlineFields.year) : null,
+        };
       } else if (me.professorProfile) {
-        input.professorProfile = { bio: bio.trim() || null, department: department.trim() || null };
+        input.professorProfile = {
+          ...roleProfile,
+          designation: draft.headlineFields.designation.trim() || null,
+          expertise: draft.headlineFields.expertise
+            .split(",")
+            .map((e) => e.trim())
+            .filter(Boolean),
+        };
       } else if (me.researcherProfile) {
-        input.researcherProfile = { bio: bio.trim() || null, department: department.trim() || null };
+        input.researcherProfile = { ...roleProfile };
       }
       if (Object.keys(input).length > 0) {
         await updateProfile.mutateAsync(input);
       }
-      if (advance) onNext();
+      onNext();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Couldn't save. Please try again.");
     } finally {
@@ -167,33 +229,88 @@ function AboutStep({
   };
 
   return (
-    <div className="space-y-5">
-      <h1 className="text-xl font-semibold text-text-primary">Tell people about yourself</h1>
-      {error && <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
+    <div className="space-y-4">
       <div>
-        <label htmlFor="ob-department" className="mb-1 block text-sm font-medium text-text-primary">
-          {me.studentProfile ? "Department / program" : "Department"}
-        </label>
+        <h1 className="text-xl font-semibold text-text-primary">Basic profile</h1>
+        <p className="mt-1 text-sm text-text-secondary">
+          Give collaborators a quick picture of who you are.
+        </p>
+      </div>
+      {error && <div className="rounded-md bg-danger-100 p-3 text-sm text-danger-600">{error}</div>}
+      <Field label="Full name">
         <input
-          id="ob-department"
           type="text"
-          value={department}
-          onChange={(e) => setDepartment(e.target.value)}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-ring"
+          value={draft.fullName}
+          onChange={(e) => setDraft({ ...draft, fullName: e.target.value })}
+          className="w-full rounded-md border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-500"
+          disabled={saving}
+        />
+      </Field>
+      <Field label={me.studentProfile ? "Department / program" : "Department"}>
+        <input
+          type="text"
+          value={draft.department}
+          onChange={(e) => setDraft({ ...draft, department: e.target.value })}
+          className="w-full rounded-md border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-500"
           placeholder="e.g., Computer Science"
           disabled={saving}
         />
-      </div>
-      <div>
-        <label htmlFor="ob-bio" className="mb-1 block text-sm font-medium text-text-primary">
-          Short bio
-        </label>
+      </Field>
+      {me.studentProfile && (
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Course / degree">
+            <input
+              type="text"
+              value={draft.headlineFields.course}
+              onChange={(e) => setDraft({ ...draft, headlineFields: { ...draft.headlineFields, course: e.target.value } })}
+              className="w-full rounded-md border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-500"
+              placeholder="B.Tech CSE"
+              disabled={saving}
+            />
+          </Field>
+          <Field label="Year">
+            <input
+              type="number"
+              min={1}
+              max={10}
+              value={draft.headlineFields.year}
+              onChange={(e) => setDraft({ ...draft, headlineFields: { ...draft.headlineFields, year: e.target.value } })}
+              className="w-full rounded-md border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-500"
+              disabled={saving}
+            />
+          </Field>
+        </div>
+      )}
+      {me.professorProfile && (
+        <>
+          <Field label="Designation">
+            <input
+              type="text"
+              value={draft.headlineFields.designation}
+              onChange={(e) => setDraft({ ...draft, headlineFields: { ...draft.headlineFields, designation: e.target.value } })}
+              className="w-full rounded-md border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-500"
+              placeholder="Associate Professor"
+              disabled={saving}
+            />
+          </Field>
+          <Field label="Expertise" hint="Comma-separated — students discover you through these.">
+            <input
+              type="text"
+              value={draft.headlineFields.expertise}
+              onChange={(e) => setDraft({ ...draft, headlineFields: { ...draft.headlineFields, expertise: e.target.value } })}
+              className="w-full rounded-md border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-500"
+              placeholder="Machine Learning, Computer Vision"
+              disabled={saving}
+            />
+          </Field>
+        </>
+      )}
+      <Field label="Short bio">
         <textarea
-          id="ob-bio"
           rows={4}
-          value={bio}
-          onChange={(e) => setBio(e.target.value)}
-          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-ring"
+          value={draft.bio}
+          onChange={(e) => setDraft({ ...draft, bio: e.target.value })}
+          className="w-full rounded-md border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-500"
           placeholder={
             me.professorProfile
               ? "What do you research and teach?"
@@ -203,59 +320,72 @@ function AboutStep({
           }
           disabled={saving}
         />
-      </div>
-      <StepActions onNext={() => save(true)} nextLabel="Continue" onSkip={() => save(true)} skipLabel="Skip for now" disabled={saving} />
+      </Field>
+      <StepActions onNext={save} nextLabel={saving ? "Saving…" : "Continue"} onSkip={save} disabled={saving} />
     </div>
   );
 }
 
+/* ============================================================
+ * STEP 3 — Skills (freelancer-style chips, dedupe, search-backed)
+ * ============================================================ */
 function SkillsStep({
   me,
+  draft,
+  setDraft,
   onNext,
-  onSkip,
 }: {
-  me: NonNullable<ReturnType<typeof useMe>["data"]>;
+  me: UserProfileResponse;
+  draft: Draft;
+  setDraft: (d: Draft) => void;
   onNext: () => void;
-  onSkip: () => void;
 }) {
   const [skillName, setSkillName] = useState("");
-  const [skills, setSkills] = useState<string[]>(
-    (me.portfolio?.skills ?? []).map((s) => s.name),
-  );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const addSkill = async () => {
-    if (!skillName.trim() || skills.includes(skillName.trim())) return;
+    const name = skillName.trim();
+    if (!name || draft.skills.includes(name)) {
+      setSkillName("");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
       // POST /skills (create-or-get) then POST /skills/:id/self — the
-      // existing skill system, no new tables.
+      // existing skill system. UserSkill has a composite PK (userId,
+      // skillId) so the link itself is dedup'd by the database.
       const res = await apiFetch<{ id: string; name?: string }>("/skills", {
         method: "POST",
-        body: { name: skillName.trim() },
+        body: { name },
       });
       await apiFetch(`/skills/${res.id}/self`, { method: "POST" });
-      setSkills((prev) => [...prev, skillName.trim()]);
+      setDraft({ ...draft, skills: [...draft.skills, name] });
       setSkillName("");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Couldn't add skill. Try again.");
+      if (err instanceof ApiError && err.code === "CONFLICT") {
+        setSkillName("");
+      } else {
+        setError(err instanceof ApiError ? err.message : "Couldn't add skill. Try again.");
+      }
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="space-y-5">
-      <h1 className="text-xl font-semibold text-text-primary">Your skills</h1>
-      <p className="text-sm text-text-secondary">
-        Skills help project leads and professors find you for collaborations.
-      </p>
-      {error && <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-xl font-semibold text-text-primary">Your skills</h1>
+        <p className="mt-1 text-sm text-text-secondary">
+          Skills help project leads and professors find you for collaborations.
+        </p>
+      </div>
+      {error && <div className="rounded-md bg-danger-100 p-3 text-sm text-danger-600">{error}</div>}
       {me.professorProfile && me.professorProfile.expertise.length > 0 && (
         <div className="rounded-lg border border-border bg-raised p-3 text-sm text-text-secondary">
-          <p className="mb-1 font-medium text-text-primary">Your existing expertise (from your profile):</p>
+          <p className="mb-1.5 font-medium text-text-primary">Your existing expertise:</p>
           <div className="flex flex-wrap gap-1.5">
             {me.professorProfile.expertise.map((e) => (
               <span key={e} className="rounded-full bg-sunken px-2.5 py-0.5 text-xs text-text-secondary">
@@ -276,50 +406,57 @@ function SkillsStep({
               void addSkill();
             }
           }}
-          className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-ring"
-          placeholder="e.g., React, Machine Learning, PCB Design"
+          className="flex-1 rounded-md border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-500"
+          placeholder="Type a skill and press Enter — e.g., React, Machine Learning"
           disabled={saving}
         />
         <button
           type="button"
           onClick={addSkill}
           disabled={saving || !skillName.trim()}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          className="rounded-md bg-accent-600 px-4 py-2 text-sm font-medium text-text-onAccent hover:bg-accent-700 disabled:opacity-50"
         >
           Add
         </button>
       </div>
-      {skills.length > 0 && (
+      {draft.skills.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {skills.map((s) => (
+          {draft.skills.map((s) => (
             <span
               key={s}
               className="inline-flex items-center gap-1 rounded-full bg-accent-100 px-2.5 py-0.5 text-xs font-medium text-accent-700"
             >
-              <Check className="h-3 w-3" aria-hidden="true" />
               {s}
+              <button
+                type="button"
+                onClick={() => setDraft({ ...draft, skills: draft.skills.filter((x) => x !== s) })}
+                className="text-accent-700 hover:text-danger-600"
+                aria-label={`Remove ${s}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
             </span>
           ))}
         </div>
       )}
-      <StepActions onNext={onNext} nextLabel="Continue" onSkip={onSkip} skipLabel="Skip for now" />
+      <StepActions onNext={onNext} nextLabel="Continue" />
     </div>
   );
 }
 
+/* ============================================================
+ * STEP 4 — Research / project interests
+ * ============================================================ */
 function InterestsStep({
-  me,
+  draft,
+  setDraft,
   onNext,
-  onSkip,
 }: {
-  me: NonNullable<ReturnType<typeof useMe>["data"]>;
+  draft: Draft;
+  setDraft: (d: Draft) => void;
   onNext: () => void;
-  onSkip: () => void;
 }) {
   const [query, setQuery] = useState("");
-  const [topics, setTopics] = useState<{ id: string; name: string }[]>(
-    (me.portfolio?.researchTopics ?? []).map((t) => ({ id: t.id, name: t.name })),
-  );
   const [results, setResults] = useState<{ id: string; name: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -333,27 +470,21 @@ function InterestsStep({
       const res = await apiFetch<{ data?: { id: string; name: string; slug: string }[] }>(
         `/research-topics?limit=5`,
       );
-      const matches = (res.data ?? []).filter(
-        (t) => t.name.toLowerCase().includes(q.trim().toLowerCase()),
+      setResults(
+        (res.data ?? [])
+          .filter((t) => t.name.toLowerCase().includes(q.trim().toLowerCase()))
+          .filter((t) => !draft.topics.some((d) => d.id === t.id)),
       );
-      setResults(matches);
     } catch {
       setResults([]);
     }
   };
 
-  const attach = async (topic: { id: string; name: string }) => {
+  const attach = async (topic: { id: string; name: string; slug: string }) => {
     setError(null);
     try {
-      // UserResearchTopic link via the existing interests endpoint shape:
-      // POST /users/me/interests { topicId } (canonical users route).
-      await apiFetch("/users/me/interests", {
-        method: "POST",
-        body: { topicId: topic.id },
-      });
-      setTopics((prev) =>
-        prev.some((t) => t.id === topic.id) ? prev : [...prev, topic],
-      );
+      await apiFetch("/users/me/interests", { method: "POST", body: { topicId: topic.id } });
+      setDraft({ ...draft, topics: [...draft.topics, topic] });
       setResults([]);
       setQuery("");
     } catch (err) {
@@ -362,17 +493,19 @@ function InterestsStep({
   };
 
   return (
-    <div className="space-y-5">
-      <h1 className="text-xl font-semibold text-text-primary">Research interests</h1>
-      <p className="text-sm text-text-secondary">
-        Pick research areas to discover relevant teams, projects, and people.
-      </p>
-      {error && <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-xl font-semibold text-text-primary">Research interests</h1>
+        <p className="mt-1 text-sm text-text-secondary">
+          Research interests connect you with relevant teams, projects, and people.
+        </p>
+      </div>
+      {error && <div className="rounded-md bg-danger-100 p-3 text-sm text-danger-600">{error}</div>}
       <input
         type="text"
         value={query}
         onChange={(e) => void search(e.target.value)}
-        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-ring"
+        className="w-full rounded-md border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-500"
         placeholder="Search research areas…"
       />
       {results.length > 0 && (
@@ -381,7 +514,7 @@ function InterestsStep({
             <li key={t.id}>
               <button
                 type="button"
-                onClick={() => void attach(t)}
+                onClick={() => void attach({ ...t, slug: "" })}
                 className="w-full rounded px-2 py-1.5 text-left text-sm text-text-primary hover:bg-sunken"
               >
                 {t.name}
@@ -390,33 +523,39 @@ function InterestsStep({
           ))}
         </ul>
       )}
-      {topics.length > 0 && (
+      {draft.topics.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {topics.map((t) => (
+          {draft.topics.map((t) => (
             <span
               key={t.id}
               className="inline-flex items-center gap-1 rounded-full bg-accent-100 px-2.5 py-0.5 text-xs font-medium text-accent-700"
             >
               <Check className="h-3 w-3" aria-hidden="true" />
               {t.name}
+              <button
+                type="button"
+                onClick={async () => {
+                  await apiFetch(`/users/me/interests/${t.id}`, { method: "DELETE" });
+                  setDraft({ ...draft, topics: draft.topics.filter((x) => x.id !== t.id) });
+                }}
+                className="text-accent-700 hover:text-danger-600"
+                aria-label={`Remove ${t.name}`}
+              >
+                <X className="h-3 w-3" />
+              </button>
             </span>
           ))}
         </div>
       )}
-      <StepActions onNext={onNext} nextLabel="Continue" onSkip={onSkip} skipLabel="Skip for now" />
+      <StepActions onNext={onNext} nextLabel="Continue" />
     </div>
   );
 }
 
-function ExistingWorkStep({
-  me,
-  onNext,
-  onSkip,
-}: {
-  me: NonNullable<ReturnType<typeof useMe>["data"]>;
-  onNext: () => void;
-  onSkip: () => void;
-}) {
+/* ============================================================
+ * STEP 5 — Existing work (derived, read-only)
+ * ============================================================ */
+function ExistingWorkStep({ me, onNext }: { me: UserProfileResponse; onNext: () => void }) {
   const portfolio = me.portfolio;
   const hasWork =
     portfolio &&
@@ -426,12 +565,14 @@ function ExistingWorkStep({
       portfolio.organizations.length > 0);
 
   return (
-    <div className="space-y-5">
-      <h1 className="text-xl font-semibold text-text-primary">Your existing work</h1>
-      <p className="text-sm text-text-secondary">
-        We already know about these from your activity — no need to re-enter anything. Your
-        portfolio updates automatically as you join teams, contribute to projects, or publish.
-      </p>
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-xl font-semibold text-text-primary">Your existing work</h1>
+        <p className="mt-1 text-sm text-text-secondary">
+          We already know about these from your activity — no need to re-enter anything. Your
+          portfolio updates automatically as you join teams, contribute to projects, or publish.
+        </p>
+      </div>
       {hasWork ? (
         <div className="space-y-3 rounded-lg border border-border bg-raised p-4 text-sm text-text-secondary">
           {portfolio!.projects.length > 0 && (
@@ -466,65 +607,101 @@ function ExistingWorkStep({
           projects, teams, and research to join.
         </div>
       )}
-      <StepActions onNext={onNext} nextLabel="Continue" onSkip={onSkip} skipLabel="Skip" />
+      <StepActions onNext={onNext} nextLabel="Continue" />
     </div>
   );
 }
 
+/* ============================================================
+ * STEP 6 — Preview ("You can edit this later")
+ * ============================================================ */
 function PreviewStep({
   me,
+  draft,
   onDone,
   onBack,
+  saving,
 }: {
-  me: NonNullable<ReturnType<typeof useMe>["data"]>;
+  me: UserProfileResponse;
+  draft: Draft;
   onDone: () => void;
   onBack: () => void;
+  saving: boolean;
 }) {
-  const profile = me.studentProfile ?? me.professorProfile ?? me.researcherProfile;
   return (
-    <div className="space-y-5">
-      <h1 className="text-xl font-semibold text-text-primary">You're all set</h1>
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-xl font-semibold text-text-primary">You're all set</h1>
+        <p className="mt-1 text-sm text-text-secondary">
+          A preview of your portfolio — you can edit everything later from{" "}
+          <span className="font-medium text-text-primary">My Portfolio</span> and{" "}
+          <span className="font-medium text-text-primary">Settings</span>.
+        </p>
+      </div>
       <div className="rounded-lg border border-border bg-raised p-4">
-        <p className="font-medium text-text-primary">{profile?.fullName}</p>
+        <p className="font-medium text-text-primary">{draft.fullName}</p>
         <p className="mt-0.5 text-sm text-text-secondary">@{me.username}</p>
-        {(me.studentProfile?.department ?? me.professorProfile?.department ?? me.researcherProfile?.department) && (
-          <p className="mt-1 text-xs text-text-muted">
-            {me.studentProfile?.department ?? me.professorProfile?.department ?? me.researcherProfile?.department}
-          </p>
-        )}
-        {profile?.bio && <p className="mt-2 text-sm text-text-secondary">{profile.bio}</p>}
-        {(me.portfolio?.skills.length ?? 0) > 0 && (
+        {draft.department && <p className="mt-1 text-xs text-text-muted">{draft.department}</p>}
+        {draft.bio && <p className="mt-2 text-sm text-text-secondary">{draft.bio}</p>}
+        {draft.skills.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {me.portfolio!.skills.map((s) => (
-              <span key={s.id} className="rounded-full bg-sunken px-2 py-0.5 text-xs text-text-secondary">
-                {s.name}
+            {draft.skills.map((s) => (
+              <span key={s} className="rounded-full bg-sunken px-2 py-0.5 text-xs text-text-secondary">
+                {s}
+              </span>
+            ))}
+          </div>
+        )}
+        {draft.topics.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {draft.topics.map((t) => (
+              <span key={t.id} className="rounded-full bg-sunken px-2 py-0.5 text-xs text-text-secondary">
+                {t.name}
               </span>
             ))}
           </div>
         )}
       </div>
-      <p className="text-sm text-text-secondary">
-        You can edit everything later from{" "}
-        <span className="font-medium text-text-primary">My Portfolio</span> and{" "}
-        <span className="font-medium text-text-primary">Settings</span>.
-      </p>
-      <div className="flex gap-2">
+      <div className="flex items-center justify-between">
         <button
           type="button"
           onClick={onBack}
-          className="rounded-md border border-border px-4 py-2 text-sm text-text-primary hover:bg-sunken"
+          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm text-text-secondary hover:text-text-primary"
         >
+          <ArrowLeft className="h-4 w-4" />
           Back
         </button>
         <button
           type="button"
           onClick={onDone}
-          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          disabled={saving}
+          className="inline-flex items-center gap-2 rounded-md bg-accent-600 px-4 py-2 text-sm font-medium text-text-onAccent hover:bg-accent-700 disabled:opacity-50"
         >
           <ChevronRight className="h-4 w-4" />
-          Enter platform
+          {saving ? "Finishing…" : "Enter platform"}
         </button>
       </div>
+    </div>
+  );
+}
+
+/* ============================================================
+ * Shared bits
+ * ============================================================ */
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}): JSX.Element {
+  return (
+    <div>
+      <label className="mb-1 block text-sm font-medium text-text-primary">{label}</label>
+      {children}
+      {hint && <p className="mt-1 text-xs text-text-muted">{hint}</p>}
     </div>
   );
 }
@@ -533,37 +710,36 @@ function StepActions({
   onNext,
   nextLabel,
   onSkip,
-  skipLabel,
   disabled = false,
 }: {
   onNext: () => void;
   nextLabel: string;
-  onSkip: () => void;
-  skipLabel: string;
+  onSkip?: () => void;
   disabled?: boolean;
 }) {
   return (
     <div className="flex items-center justify-between pt-2">
-      <button
-        type="button"
-        onClick={onSkip}
-        disabled={disabled}
-        className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm text-text-secondary hover:text-text-primary disabled:opacity-50"
-      >
-        <SkipForward className="h-3.5 w-3.5" />
-        {skipLabel}
-      </button>
+      {onSkip ? (
+        <button
+          type="button"
+          onClick={onSkip}
+          disabled={disabled}
+          className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-sm text-text-secondary transition-colors hover:bg-sunken hover:text-text-primary disabled:opacity-50"
+        >
+          <SkipForward className="h-3.5 w-3.5" />
+          Skip
+        </button>
+      ) : (
+        <span />
+      )}
       <button
         type="button"
         onClick={onNext}
         disabled={disabled}
-        className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        className="rounded-md bg-accent-600 px-4 py-2 text-sm font-medium text-text-onAccent hover:bg-accent-700 disabled:opacity-50"
       >
         {nextLabel}
       </button>
     </div>
   );
 }
-
-// keep useSessionStore import used (role source documented above)
-void useSessionStore;

@@ -11,12 +11,22 @@ export interface ProjectSummary {
   memberCount: number;
 }
 
+export interface ProjectMemberRef {
+  userId: string;
+  username: string;
+  avatarUrl: string | null;
+  roleOnProject: string | null;
+}
+
 export interface ProjectDetail extends ProjectSummary {
   problemStatement: string | null;
   solutionDescription: string | null;
   githubUrl: string | null;
   demoUrl: string | null;
   docsUrl: string | null;
+  creator: { id: string; username: string } | null;
+  members: ProjectMemberRef[];
+  topics: { id: string; name: string; slug: string }[];
 }
 
 export interface ProjectListParams {
@@ -33,7 +43,12 @@ export interface ProjectListParams {
  * skill relation, nulls normalized to the display defaults. */
 function mapProject(raw: Record<string, unknown>): ProjectDetail {
   const skills = (raw.skillsNeeded as { skill?: { name?: string }; roleNeeded?: SkillRoleNeeded }[] | undefined) ?? [];
-  const members = (raw.members as unknown[] | undefined) ?? [];
+  const members =
+    (raw.members as
+      | { user?: { id?: string; username?: string; avatarUrl?: string | null }; roleOnProject?: string | null }[]
+      | undefined) ?? [];
+  const creator = raw.creator as { id?: string; username?: string } | null | undefined;
+  const topics = (raw.topics as { researchTopic?: { id?: string; name?: string; slug?: string } }[] | undefined) ?? [];
   return {
     id: String(raw.id),
     name: String(raw.name),
@@ -49,6 +64,23 @@ function mapProject(raw: Record<string, unknown>): ProjectDetail {
     githubUrl: (raw.githubUrl as string | null) ?? null,
     demoUrl: (raw.demoUrl as string | null) ?? null,
     docsUrl: (raw.docsUrl as string | null) ?? null,
+    creator: creator?.id ? { id: creator.id, username: creator.username ?? "Unknown" } : null,
+    members: members.map((m) => {
+      const u = m.user as { id?: string; username?: string; avatarUrl?: string | null } | undefined;
+      return {
+        userId: u?.id ?? "",
+        username: u?.username ?? "Unknown",
+        avatarUrl: u?.avatarUrl ?? null,
+        roleOnProject: (m.roleOnProject as string | null) ?? null,
+      };
+    }),
+    topics: topics
+      .filter((t) => t.researchTopic?.id)
+      .map((t) => ({
+        id: t.researchTopic!.id!,
+        name: t.researchTopic!.name ?? "",
+        slug: t.researchTopic!.slug ?? "",
+      })),
   };
 }
 
@@ -84,6 +116,8 @@ export const projectsApi = {
   create: async (input: {
     name: string;
     description?: string;
+    problemStatement?: string;
+    solutionDescription?: string;
     status?: ProjectStatus;
   }): Promise<ProjectDetail> => {
     const raw = await apiFetch<Record<string, unknown>>("/projects", {

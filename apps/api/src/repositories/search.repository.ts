@@ -11,27 +11,61 @@ import { prisma } from "./prisma.js";
  */
 export class SearchRepository {
   async searchPeople(query: string, limit: number) {
+    // Real username (SAFE_USER_SELECT semantics — never the UUID as a
+    // display field), full_name per role profile, and MATCH reason.
+    // Matches on name (ILIKE), profile full-text vector (bio/expertise),
+    // and university domain — intentional searchable fields only, never
+    // IDs/timestamps/enum values.
     return prisma.$queryRaw<
-      { id: string; username: string; role: string; department: string | null; matched: string }[]
+      { id: string; username: string; fullName: string | null; role: string; department: string | null; matched: string }[]
     >`
-      SELECT u.id::text as id, u.id::text as username, u.requested_role as role,
+      SELECT u.id::text as id, u.username, u.requested_role as role,
+             COALESCE(sp.full_name, pp.full_name, rp.full_name) as "fullName",
              COALESCE(sp.department, pp.department, rp.department) as department,
-             'bio' as matched
+             CASE
+               WHEN u.username ILIKE ${'%' + query + '%'}
+                 OR sp.full_name ILIKE ${'%' + query + '%'}
+                 OR pp.full_name ILIKE ${'%' + query + '%'}
+                 OR rp.full_name ILIKE ${'%' + query + '%'} THEN 'name'
+               WHEN pp.expertise::text ILIKE ${'%' + query + '%'} THEN 'expertise'
+               ELSE 'profile'
+             END as matched
       FROM users u
-      LEFT JOIN student_profiles sp ON sp.user_id = u.id AND sp.search_vector @@ plainto_tsquery('english', ${query})
-      LEFT JOIN professor_profiles pp ON pp.user_id = u.id AND pp.search_vector @@ plainto_tsquery('english', ${query})
-      LEFT JOIN researcher_profiles rp ON rp.user_id = u.id AND rp.search_vector @@ plainto_tsquery('english', ${query})
+      LEFT JOIN student_profiles sp ON sp.user_id = u.id
+      LEFT JOIN professor_profiles pp ON pp.user_id = u.id
+      LEFT JOIN researcher_profiles rp ON rp.user_id = u.id
       WHERE u.status = 'active'
-        AND (sp.user_id IS NOT NULL OR pp.user_id IS NOT NULL OR rp.user_id IS NOT NULL)
+        AND (
+          u.username ILIKE ${'%' + query + '%'}
+          OR sp.full_name ILIKE ${'%' + query + '%'}
+          OR pp.full_name ILIKE ${'%' + query + '%'}
+          OR rp.full_name ILIKE ${'%' + query + '%'}
+          OR sp.search_vector @@ plainto_tsquery('english', ${query})
+          OR pp.search_vector @@ plainto_tsquery('english', ${query})
+          OR rp.search_vector @@ plainto_tsquery('english', ${query})
+        )
+      ORDER BY CASE
+        WHEN u.username ILIKE ${query + '%'}
+          OR sp.full_name ILIKE ${query + '%'}
+          OR pp.full_name ILIKE ${query + '%'}
+          OR rp.full_name ILIKE ${query + '%'} THEN 0
+        ELSE 1
+      END, u.username
       LIMIT ${limit}
     `;
   }
 
   async searchProjects(query: string, limit: number) {
-    return prisma.$queryRaw<{ id: string; name: string; status: string }[]>`
-      SELECT id::text as id, name, status::text as status
-      FROM projects
-      WHERE search_vector @@ plainto_tsquery('english', ${query})
+    return prisma.$queryRaw<
+      { id: string; name: string; status: string; description: string | null; creator: string | null }[]
+    >`
+      SELECT p.id::text as id, p.name, p.status::text as status,
+             p.description,
+             u.username as creator
+      FROM projects p
+      LEFT JOIN users u ON u.id = p.created_by
+      WHERE p.search_vector @@ plainto_tsquery('english', ${query})
+         OR p.name ILIKE ${'%' + query + '%'}
       LIMIT ${limit}
     `;
   }
@@ -41,6 +75,7 @@ export class SearchRepository {
       SELECT id::text as id, name, slug
       FROM research_topics
       WHERE search_vector @@ plainto_tsquery('english', ${query})
+         OR name ILIKE ${'%' + query + '%'}
       LIMIT ${limit}
     `;
   }
@@ -50,6 +85,7 @@ export class SearchRepository {
       SELECT id::text as id, title
       FROM publications
       WHERE search_vector @@ plainto_tsquery('english', ${query})
+         OR title ILIKE ${'%' + query + '%'}
       LIMIT ${limit}
     `;
   }
@@ -79,10 +115,10 @@ export class SearchRepository {
     // research_teams has no search_vector column (not listed in DATABASE_SCHEMA.md's
     // Indexing Summary) — falls back to a simple ILIKE on name, which is the
     // documented, non-generated-column path for tables without one.
-    return prisma.$queryRaw<{ id: string; name: string }[]>`
-      SELECT id::text as id, name
+    return prisma.$queryRaw<{ id: string; name: string; description: string | null }[]>`
+      SELECT id::text as id, name, description
       FROM research_teams
-      WHERE name ILIKE ${"%" + query + "%"}
+      WHERE name ILIKE ${"%" + query + "%"} OR description ILIKE ${"%" + query + "%"}
       LIMIT ${limit}
     `;
   }

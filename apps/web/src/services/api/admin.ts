@@ -16,7 +16,11 @@ import { apiFetch } from "./client";
 export interface VerificationRequest {
   id: string;
   userName: string;
-  requestedRole: "professor" | "researcher" | "club_rep" | "startup_member";
+  userEmail: string | null;
+  requestedRole: string;
+  roleClaimed: string;
+  universityDomain: string | null;
+  evidenceUrl: string | null;
   submittedAt: string; // ISO date
   status: "pending" | "approved" | "rejected";
 }
@@ -43,8 +47,39 @@ export interface AdminMetrics {
 }
 
 export const adminApi = {
-  getVerifications: (status?: string): Promise<{ data: VerificationRequest[] }> => 
-    apiFetch<{ data: VerificationRequest[] }>(`/admin/verifications${status ? `?status=${status}` : ''}`),
+  getVerifications: async (status?: string): Promise<{ data: VerificationRequest[] }> => {
+    const raw = await apiFetch<{
+      data?: {
+        id: string;
+        roleClaimed: string;
+        status: string;
+        evidenceUrl?: string | null;
+        createdAt: string;
+        user?: {
+          username: string;
+          email?: string;
+          requestedRole?: string;
+          universityDomain?: string | null;
+        };
+      }[];
+    }>(`/admin/verifications${status ? `?status=${status}` : ''}`);
+    // Map the raw backend row (nested user, createdAt) to the flat shape
+    // the admin panel renders — userName from the nested user, never a
+    // raw UUID.
+    return {
+      data: (raw.data ?? []).map((v) => ({
+        id: v.id,
+        userName: v.user?.username ?? "Unknown",
+        userEmail: v.user?.email ?? null,
+        requestedRole: v.user?.requestedRole ?? "unknown",
+        roleClaimed: v.roleClaimed,
+        universityDomain: v.user?.universityDomain ?? null,
+        evidenceUrl: v.evidenceUrl ?? null,
+        submittedAt: v.createdAt,
+        status: (v.status as VerificationRequest["status"]) ?? "pending",
+      })),
+    };
+  },
   getOpenReports: (): Promise<{ data: Report[] }> => 
     apiFetch<{ data: Report[] }>("/admin/reports?status=open"),
   getMetrics: (): Promise<AdminMetrics> => 

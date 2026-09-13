@@ -20,6 +20,10 @@ router.post("/me/interests", requireAuth, profileController.addInterest);
 
 router.delete("/me/interests/:topicId", requireAuth, profileController.removeInterest);
 
+router.get("/me/verification", requireAuth, profileController.getVerification);
+
+router.post("/me/verification", requireAuth, profileController.requestVerification);
+
 router.patch(
   "/me/profile",
   requireAuth,

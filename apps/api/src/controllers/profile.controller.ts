@@ -121,6 +121,43 @@ export async function removeInterest(
   }
 }
 
+// GET /users/me/verification — the caller's verification status using the
+// existing Verification model (request row + university verification).
+export async function getVerification(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await profileService.getOwnVerificationStatus(req.user!.id);
+    res.status(200).json(result);
+  } catch (err: unknown) {
+    next(err);
+  }
+}
+
+// POST /users/me/verification — submit a verification request
+// (status: pending, goes to admin review via the existing workflow).
+export async function requestVerification(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { roleClaimed, evidenceUrl } = req.body as {
+      roleClaimed?: string;
+      evidenceUrl?: string;
+    };
+    const result = await profileService.requestVerification(req.user!.id, {
+      roleClaimed,
+      evidenceUrl,
+    });
+    res.status(200).json(result);
+  } catch (err: unknown) {
+    next(err);
+  }
+}
+
 export async function updateOwnPrivacy(
   req: Request,
   res: Response,

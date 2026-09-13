@@ -40,3 +40,21 @@ export function useUpdateOwnProfile() {
     },
   });
 }
+
+export function useVerificationStatus() {
+  return useQuery({
+    queryKey: ["verification"],
+    queryFn: () => meApi.getVerificationStatus(),
+  });
+}
+
+export function useRequestVerification() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { roleClaimed?: string; evidenceUrl?: string }) =>
+      meApi.requestVerification(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["verification"] });
+    },
+  });
+}
