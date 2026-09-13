@@ -56,6 +56,10 @@ export default function SignupPage(): JSX.Element {
           Your account has been created and is waiting for email verification. Check your inbox for
           the verification link or token.
         </p>
+        <p className="text-sm text-text-secondary">
+          After logging in you'll set up your portfolio — your name, bio, skills, and interests —
+          and it will keep growing automatically as you use the platform.
+        </p>
 
         <Link
           to="/login"
