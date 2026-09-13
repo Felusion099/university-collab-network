@@ -2,8 +2,7 @@ import { useParams, Link } from "react-router-dom";
 import { UserX, ArrowLeft } from "lucide-react";
 import type { UserRole } from "@app/shared-types";
 import { useDirectoryUser } from "@/hooks/useDirectory";
-import { ProfileHeader } from "@/components/ProfileHeader";
-import { SkillBadge } from "@/components/ui/Badge";
+import { PortfolioView } from "@/components/PortfolioView";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -20,12 +19,10 @@ const ROLE_LIST_ROUTE: Record<UserRole, string> = {
 
 /**
  * Shared implementation behind /students/:username, /professors/:username,
- * /researchers/:username. Mirrors GET /users/:username's real, already-
- * contracted shape (API_CONTRACT.md §2) loosely via `directoryApi`'s mock
- * — full profile fields (bio, links, connections) aren't in
- * `DirectoryUserSummary` yet and are Phase 8's job to wire from the real
- * endpoint, not faked here. Header block uses the shared `ProfileHeader`
- * component (ARCHITECTURE.md §5) instead of inline markup.
+ * /researchers/:username. Renders the real, privacy-filtered
+ * UserProfileResponse (GET /users/:username) through the shared
+ * PortfolioView — role-aware sections composed server-side from the
+ * user's actual entity relationships.
  */
 export function DirectoryDetail({ role }: { role: UserRole }): JSX.Element {
   const { username } = useParams<{ username: string }>();
@@ -61,48 +58,7 @@ export function DirectoryDetail({ role }: { role: UserRole }): JSX.Element {
         />
       )}
 
-      {!isLoading && !isError && user && (
-        <div className="space-y-6">
-          <ProfileHeader
-            avatarUrl={user.avatarUrl}
-            name={user.fullName}
-            username={user.username}
-            verified={user.isUniversityVerified}
-            subtitle={user.headline}
-          />
-
-          {user.topSkills.length > 0 && (
-            <div>
-              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-text-muted">
-                Skills
-              </h2>
-              <div className="flex flex-wrap gap-1.5">
-                {user.topSkills.map((skill: string) => (
-                  <SkillBadge key={skill} skill={skill} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {user.department && (
-            <p className="text-xs text-text-muted">{user.department}</p>
-          )}
-
-          {user.bio && (
-            <div>
-              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-text-muted">About</h2>
-              <p className="text-sm text-text-secondary leading-relaxed">{user.bio}</p>
-            </div>
-          )}
-
-          {user.lookingFor && (
-            <div>
-              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-text-muted">What they're looking for</h2>
-              <p className="text-sm text-text-secondary leading-relaxed">{String(user.lookingFor)}</p>
-            </div>
-          )}
-        </div>
-      )}
+      {!isLoading && !isError && user && <PortfolioView user={user} />}
     </div>
   );
 }

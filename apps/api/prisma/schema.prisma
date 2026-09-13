@@ -25,6 +25,13 @@ model User {
   isUniversityVerified       Boolean                   @default(false) @map("is_university_verified")
   universityDomain           String?                   @map("university_domain")
   avatarUrl                  String?                   @map("avatar_url")
+  /// New-user onboarding completion marker (NULL = onboarding not yet
+  /// completed). A single nullable timestamp — deliberately NOT an enum or
+  /// separate state machine: profile rows always exist post-signup (created
+  /// in auth.service.ts#signup) and UserStatus has no onboarding semantics,
+  /// so no existing field could represent "onboarding incomplete" without a
+  /// fragile data heuristic. See DECISIONS.md (onboarding-state decision).
+  onboardingCompletedAt      DateTime?                 @map("onboarding_completed_at")
   isSeed                     Boolean                   @default(false) @map("is_seed")
   createdAt                  DateTime                  @default(now()) @map("created_at")
   updatedAt                  DateTime                  @updatedAt @map("updated_at")

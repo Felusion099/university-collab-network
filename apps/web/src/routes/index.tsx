@@ -34,6 +34,8 @@ import AdminPage from "@/pages/admin/AdminPage";
 import MessagesPage from "@/pages/messages/MessagesPage";
 import NotificationsPage from "@/pages/notifications/NotificationsPage";
 import SettingsPage from "@/pages/settings/SettingsPage";
+import MyPortfolioPage from "@/pages/me/MyPortfolioPage";
+import OnboardingPage from "@/pages/onboarding/OnboardingPage";
 
 // Router skeleton (Phase 6) + Phase 7 route wiring. Full route map lives in
 // FILE_STRUCTURE.md's "Route → Owning Phase Map" — routes not listed below
@@ -89,6 +91,8 @@ export const router = createBrowserRouter([
           { path: "/messages", element: <MessagesPage /> },
           { path: "/notifications", element: <NotificationsPage /> },
           { path: "/settings", element: <SettingsPage /> },
+          { path: "/me", element: <MyPortfolioPage /> },
+          { path: "/onboarding", element: <OnboardingPage /> },
         ],
       },
     ],

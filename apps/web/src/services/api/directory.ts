@@ -1,4 +1,5 @@
 import { apiFetch } from "./client";
+import type { UserProfileResponse } from "@app/shared-types";
 import type { UserRole } from "@app/shared-types";
 
 /**
@@ -168,44 +169,17 @@ export const directoryApi = {
 
   /** Mirrors GET /users/:username (API_CONTRACT.md §2, real endpoint —
    * not provisional) shape closely enough for the detail page mock. */
-  getByUsername: async (username: string): Promise<DirectoryUserDetail | null> => {
+    /** Real GET /users/:username (API_CONTRACT.md §2) — the canonical,
+   * privacy-filtered UserProfileResponse including the server-composed
+   * portfolio view. Replaces the earlier flattened mock shape. */
+  getByUsername: async (username: string): Promise<UserProfileResponse | null> => {
     try {
-      const res = await apiFetch<{
-        id: string;
-        username: string;
-        email: string;
-        requestedRole: string;
-        avatarUrl: string | null;
-        isUniversityVerified: boolean;
-        studentProfile?: { fullName: string; department?: string; bio?: string; userSkills?: Array<{ skill?: { name: string } }>; cgpa?: number; lookingFor?: string };
-        professorProfile?: { fullName: string; department?: string; bio?: string; designation?: string; expertise?: string[] };
-        researcherProfile?: { fullName: string; department?: string; bio?: string; researcherType?: string; currentAvailability?: boolean };
-      }>(`/users/${username}`);
-      const profile = (res?.studentProfile ?? res?.professorProfile ?? res?.researcherProfile ?? {}) as {
-        bio?: string;
-        designation?: string;
-        department?: string;
-        userSkills?: Array<{ skill?: { name: string } }>;
-        expertise?: string[];
-        lookingFor?: string;
-        cgpa?: number;
-      };
-      return {
-        id: res.id,
-        username: res.username,
-        fullName: res.email?.split('@')[0] ?? res.username ?? 'Unknown',
-        role: res.requestedRole ?? 'student',
-        avatarUrl: res.avatarUrl ?? null,
-        isUniversityVerified: res.isUniversityVerified ?? false,
-        headline: profile.bio ? profile.bio.slice(0, 60) + (profile.bio.length > 60 ? '...' : '') : (profile.designation ? profile.designation : (profile.department ? profile.department : null)),
-        department: profile.department ?? null,
-        bio: profile.bio ?? null,
-        topSkills: profile.userSkills?.map((s) => s.skill?.name ?? "") ?? profile.expertise ?? [],
-        lookingFor: profile.lookingFor ?? null,
-        cgpa: profile.cgpa ?? null,
-      };
-    } catch {
-      return null;
+      return await apiFetch<UserProfileResponse>(`/users/${username}`);
+    } catch (err) {
+      if (err && typeof err === "object" && "status" in err && (err as { status: number }).status === 404) {
+        return null;
+      }
+      throw err;
     }
   },
 };

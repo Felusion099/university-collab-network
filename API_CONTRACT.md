@@ -61,6 +61,14 @@ Response `200`: full profile object, with any field the viewer isn't authorized 
 
 ### PATCH `/users/me/profile` — auth required, owner only.
 ### GET/PATCH `/users/me/privacy` — auth required, owner only. Body shape mirrors `privacy_settings` table columns.
+### GET `/users/me` — auth required. The caller's own profile, owner view (unfiltered for self). The JWT carries no username, so `/users/:username` cannot address self; this reuses the same composition + privacy pipeline. Response includes the server-composed `portfolio` (see below).
+### GET `/users/me/onboarding` — auth required. `200 { "completed": bool, "completedAt": ISO|null, "role": UserRole }`. Marker: `users.onboarding_completed_at` (NULL = incomplete). See DECISIONS D-023.
+### POST `/users/me/onboarding/complete` — auth required. Body `{ "completed": true }`. Marks onboarding done; idempotent.
+### POST `/users/me/interests` — auth required. Body `{ "topicId": uuid }`. Links the caller to a research topic via the existing `user_research_topics` table (composite PK); portfolio `researchTopics` updates automatically.
+### DELETE `/users/me/interests/:topicId` — auth required. Unlinks a research topic.
+
+### Portfolio (composed view — NOT a stored table)
+`GET /users/:username` and `GET /users/me` responses include an optional `portfolio` object, derived server-side from the user's real relationships on every read (projects, research teams, publications, organizations, skills, research topics). Sections are privacy-filtered per viewer using the existing `PrivacySettings` fields (projects → `projectsVisibility`, teams/topics/publications → `researchVisibility`, organizations → `activityVisibility`, skills → `academicVisibility`); sections the viewer may not see are omitted from the JSON entirely (same convention as D-004). The portfolio is never persisted — it is a living view that updates automatically as platform relationships change.
 
 ---
 

@@ -48,6 +48,79 @@ export async function getOwnPrivacy(
   }
 }
 
+// GET /users/me — the caller's own profile (owner view). The JWT carries
+// no username, so /users/:username cannot address self; this reuses the
+// same composition + privacy pipeline as getProfileByUsername.
+export async function getMe(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await profileService.getOwnProfile(req.user!.id);
+    res.status(200).json(result);
+  } catch (err: unknown) {
+    next(err);
+  }
+}
+
+// GET /users/me/onboarding — onboarding status (users.onboarding_completed_at).
+export async function getOnboarding(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await profileService.getOnboardingStatus(req.user!.id);
+    res.status(200).json(result);
+  } catch (err: unknown) {
+    next(err);
+  }
+}
+
+// POST /users/me/onboarding/complete — marks onboarding done.
+export async function completeOnboarding(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await profileService.completeOnboarding(req.user!.id);
+    res.status(200).json(result);
+  } catch (err: unknown) {
+    next(err);
+  }
+}
+
+// POST /users/me/interests — link the caller to a research topic
+// (existing user_research_topics table).
+export async function addInterest(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { topicId } = req.body as { topicId: string };
+    const result = await profileService.addOwnInterest(req.user!.id, topicId);
+    res.status(201).json(result);
+  } catch (err: unknown) {
+    next(err);
+  }
+}
+
+// DELETE /users/me/interests/:topicId — unlink a research topic.
+export async function removeInterest(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await profileService.removeOwnInterest(
+      req.user!.id,
+      req.params.topicId as string,
+    );
+    res.status(200).json(result);
+  } catch (err: unknown) {
+    next(err);
+  }
+}
+
 export async function updateOwnPrivacy(
   req: Request,
   res: Response,

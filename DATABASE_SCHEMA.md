@@ -5,7 +5,7 @@ Postgres via Prisma. Naming: `snake_case` tables/columns, plural table names, `i
 ## Core Identity
 
 **users**
-`id, email (unique), username (unique — added per DECISIONS.md D-013, server-generated at signup, backs API_CONTRACT.md §2's GET /users/:username), phone (nullable — added per DECISIONS.md D-018, gated by privacy_settings.phone_visibility), password_hash, requested_role (enum: student|professor|researcher|club_rep|startup_member|alumni|admin), status (enum: pending_verification|active|suspended|banned), is_university_verified (bool), university_domain, avatar_url, created_at, updated_at`
+`id, email (unique), username (unique — added per DECISIONS.md D-013, server-generated at signup, backs API_CONTRACT.md §2's GET /users/:username), phone (nullable — added per DECISIONS.md D-018, gated by privacy_settings.phone_visibility), password_hash, requested_role (enum: student|professor|researcher|club_rep|startup_member|alumni|admin), status (enum: pending_verification|active|suspended|banned), is_university_verified (bool), university_domain, avatar_url, onboarding_completed_at (nullable timestamp — added per DECISIONS.md D-023, NULL = new-user onboarding incomplete; backs API_CONTRACT.md §2's GET/POST /users/me/onboarding), created_at, updated_at`
 Indexes: `email`, `username`, `status`.
 
 **refresh_tokens**

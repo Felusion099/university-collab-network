@@ -15,6 +15,7 @@ import {
   Bell,
   Settings,
   ShieldCheck,
+  IdCard,
 } from "lucide-react";
 import { useSessionStore } from "@/stores/session.store";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,7 @@ import { cn } from "@/lib/utils";
  */
 const NAV_ITEMS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/me", label: "My Portfolio", icon: IdCard },
   { to: "/discover", label: "Discover", icon: Compass },
   { to: "/students", label: "Students", icon: GraduationCap },
   { to: "/professors", label: "Professors", icon: Presentation },

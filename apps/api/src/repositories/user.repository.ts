@@ -32,6 +32,25 @@ export class UserRepository {
         professorProfile: true,
         researcherProfile: true,
         privacySettings: true,
+        // Portfolio composition — real relationships only (no stored
+        // portfolio rows); profile.service.ts derives the composed view
+        // from these and privacy-filters it per viewer.
+        projectMemberships: { include: { project: { select: { id: true, name: true, status: true, createdBy: true } } } },
+        memberships: {
+          include: {
+            organization: { select: { id: true, name: true, type: true } },
+            researchTeam: { select: { id: true, name: true } },
+          },
+        },
+        projectsCreated: { select: { id: true, name: true, status: true } },
+        researchTeamsLed: { select: { id: true, name: true } },
+        researchTeamsCreated: { select: { id: true, name: true } },
+        publicationAuthorships: {
+          include: { publication: { select: { id: true, title: true, publishedDate: true, journalOrConference: true } } },
+        },
+        userSkills: { include: { skill: { select: { id: true, name: true } } } },
+        userResearchTopics: { include: { researchTopic: { select: { id: true, name: true, slug: true } } } },
+        organizationsCreated: { select: { id: true, name: true, type: true } },
       },
     });
   }
@@ -54,6 +73,7 @@ export class UserRepository {
         email: true,
         requestedRole: true,
         status: true,
+        onboardingCompletedAt: true,
       },
     });
   }
@@ -88,6 +108,40 @@ export class UserRepository {
   async findProfessorProfile(userId: string) {
     return prisma.professorProfile.findUnique({
       where: { userId },
+    });
+  }
+
+  /**
+   * Portfolio-include lookup by id — same relationships findByUsername
+   * pulls, used by GET /users/me (the JWT carries no username, so the
+   * frontend cannot address itself via /users/:username). Reused by the
+   * onboarding prefill and the composed portfolio view.
+   */
+  async findByIdWithPortfolio(id: string) {
+    return prisma.user.findUnique({
+      where: { id },
+      include: {
+        studentProfile: true,
+        professorProfile: true,
+        researcherProfile: true,
+        privacySettings: true,
+        projectMemberships: { include: { project: { select: { id: true, name: true, status: true, createdBy: true } } } },
+        memberships: {
+          include: {
+            organization: { select: { id: true, name: true, type: true } },
+            researchTeam: { select: { id: true, name: true } },
+          },
+        },
+        projectsCreated: { select: { id: true, name: true, status: true } },
+        researchTeamsLed: { select: { id: true, name: true } },
+        researchTeamsCreated: { select: { id: true, name: true } },
+        publicationAuthorships: {
+          include: { publication: { select: { id: true, title: true, publishedDate: true, journalOrConference: true } } },
+        },
+        userSkills: { include: { skill: { select: { id: true, name: true } } } },
+        userResearchTopics: { include: { researchTopic: { select: { id: true, name: true, slug: true } } } },
+        organizationsCreated: { select: { id: true, name: true, type: true } },
+      },
     });
   }
 }
