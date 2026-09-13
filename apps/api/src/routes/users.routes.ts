@@ -31,3 +31,5 @@ router.patch(
 router.get("/:username", optionalAuth, profileController.getByUsername);
 
 export { router as usersRouter };
+
+router.get("/", optionalAuth, profileController.listByRole);

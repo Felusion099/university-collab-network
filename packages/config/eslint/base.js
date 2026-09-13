@@ -12,6 +12,7 @@
 // pass rather than treating it as already frozen.
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
+import globals from "globals";
 
 /** @type {import("eslint").Linter.Config[]} */
 export default [
@@ -20,4 +21,12 @@ export default [
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
+  {
+    // Node scripts (e.g. apps/api/scripts/*.mjs) run under Node, not the
+    // browser — they legitimately use process/console globals.
+    files: ["**/scripts/**/*.mjs", "**/scripts/**/*.js"],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+  },
 ];

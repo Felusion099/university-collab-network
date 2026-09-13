@@ -31,7 +31,7 @@ export async function signup(req: Request, res: Response, next: NextFunction): P
   try {
     const result = await authService.signup(req.body as SignupRequest);
     res.status(201).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -41,7 +41,7 @@ export async function verifyEmail(req: Request, res: Response, next: NextFunctio
     const { token } = req.body as VerifyEmailRequest;
     const result = await authService.verifyEmail(token);
     res.status(200).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -53,7 +53,7 @@ export async function login(req: Request, res: Response, next: NextFunction): Pr
     );
     setRefreshCookie(res, refreshToken, refreshTokenMaxAgeMs);
     res.status(200).json({ accessToken, user });
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -65,7 +65,7 @@ export async function refresh(req: Request, res: Response, next: NextFunction): 
       await authService.refreshTokens(raw);
     setRefreshCookie(res, refreshToken, refreshTokenMaxAgeMs);
     res.status(200).json({ accessToken });
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -76,7 +76,7 @@ export async function logout(req: Request, res: Response, next: NextFunction): P
     await authService.logout(raw);
     clearRefreshCookie(res);
     res.status(204).send();
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -110,7 +110,7 @@ export async function forgotPassword(
     const { email } = req.body as ForgotPasswordRequest;
     const result = await authService.forgotPassword(email);
     res.status(200).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -124,7 +124,7 @@ export async function resetPassword(
     const { token, newPassword } = req.body as ResetPasswordRequest;
     const result = await authService.resetPassword(token, newPassword);
     res.status(200).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }

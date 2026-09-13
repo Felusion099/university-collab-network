@@ -156,5 +156,164 @@ Never return a bare score with no `matchedCriteria` — this is a spec requireme
 
 ---
 
+## 10. Professor Research Management — `/api/v1/*/professor/*` (Phase 9+ owns)
+
+### Research Topics — `/api/v1/research-topics/professor/*`
+
+#### POST `/research-topics/professor`
+Auth: required, `requireRole(['professor'])` + verified professor.
+Request: `{ "name": string, "description": string?, "parentTopicId": string? }`
+Response `201`: `{ "id", "name", "slug", "description", "parentTopicId", "status": "DRAFT", "createdAt" }`
+Errors: `403 NOT_VERIFIED_PROFESSOR`, `422 VALIDATION_ERROR`.
+
+#### GET `/research-topics/professor/me`
+Auth: required, `requireRole(['professor'])` + verified professor.
+Query: `?cursor=&limit=`
+Response `200`: `{ "data": [{ "id", "name", "slug", "description", "status", "createdAt" }], "nextCursor" }`
+
+#### GET `/research-topics/professor/:id`
+Auth: required, `requireRole(['professor'])` + ownership.
+Response `200`: Full research topic detail (same shape as `GET /research-topics/:slug`).
+
+#### PATCH `/research-topics/professor/:id`
+Auth: required, `requireRole(['professor'])` + ownership.
+Request: `{ "name": string?, "description": string?, "parentTopicId": string? }`
+Response `200`: Updated research topic.
+
+#### DELETE `/research-topics/professor/:id`
+Auth: required, `requireRole(['professor'])` + ownership.
+Response `204` or `403` if related data exists (use archive instead).
+
+#### PATCH `/research-topics/professor/:id/status`
+Auth: required, `requireRole(['professor'])` + ownership.
+Request: `{ "status": "DRAFT"|"ACTIVE"|"PAUSED"|"COMPLETED"|"ARCHIVED" }`
+Response `200`: Updated research topic with new status.
+Errors: `400 INVALID_TRANSITION` for invalid state transitions.
+
+#### GET `/research-topics/professor/me`
+Auth: required, `requireRole(['professor'])` + verified professor.
+Query: `?cursor=&limit=`
+Response `200`: Paginated list of professor's research topics.
+
+### Research Teams — `/api/v1/research-teams/professor/*`
+
+#### POST `/research-teams/professor`
+Auth: required, `requireRole(['professor'])` + verified professor.
+Request: `{ "name": string, "description": string?, "topicIds": string[]? }`
+Response `201`: Created research team with professor as PI.
+
+#### GET `/research-teams/professor/me`
+Auth: required, `requireRole(['professor'])` + verified professor.
+Query: `?cursor=&limit=&topic=`
+Response `200`: Paginated list of professor's research teams.
+
+#### GET `/research-teams/professor/:id`
+Auth: required, `requireRole(['professor'])` + ownership.
+Response `200`: Full research team detail.
+
+#### PATCH `/research-teams/professor/:id`
+Auth: required, `requireRole(['professor'])` + ownership.
+Request: `{ "name": string?, "description": string? }`
+Response `200`: Updated research team.
+
+#### DELETE `/research-teams/professor/:id`
+Auth: required, `requireRole(['professor'])` + ownership.
+Response `204` or `403` if related data exists.
+
+#### POST `/research-teams/professor/:id/members`
+Auth: required, `requireRole(['professor'])` + ownership.
+Request: `{ "userId": string, "role": "member"|"researcher"|"student"|"contributor"? }`
+Response `201`: Created membership.
+
+#### DELETE `/research-teams/professor/:id/members/:userId`
+Auth: required, `requireRole(['professor'])` + ownership.
+Response `204`.
+
+#### PATCH `/research-teams/professor/:id/members/:userId`
+Auth: required, `requireRole(['professor'])` + ownership.
+Request: `{ "role": "member"|"researcher"|"student"|"contributor"|"advisor" }`
+Response `200`: Updated membership.
+
+#### PATCH `/research-teams/professor/:id/transfer-pi`
+Auth: required, `requireRole(['professor'])` + ownership.
+Request: `{ "newPIUserId": string }`
+Response `200`: Updated research team with new PI.
+Errors: `400 INVALID_NEW_PI` if new PI is not a verified professor.
+
+### Projects — `/api/v1/projects/professor/*`
+
+#### POST `/projects/professor/:id/members`
+Auth: required, `requireRole(['professor'])` + ownership.
+Request: `{ "userId": string, "roleOnProject": string? }`
+Response `201`: Created project membership.
+
+#### DELETE `/projects/professor/:id/members/:userId`
+Auth: required, `requireRole(['professor'])` + ownership.
+Response `204`.
+
+#### PATCH `/projects/professor/:id/members/:userId`
+Auth: required, `requireRole(['professor'])` + ownership.
+Request: `{ "roleOnProject": string }`
+Response `200`: Updated membership.
+
+#### PATCH `/projects/professor/:id/status`
+Auth: required, `requireRole(['professor'])` + ownership.
+Request: `{ "status": "idea"|"planning"|"development"|"beta"|"active"|"completed"|"archived"}`
+Response `200`: Updated project.
+Errors: `400 INVALID_TRANSITION` for invalid state transitions.
+
+#### GET `/projects/professor/me`
+Auth: required, `requireRole(['professor'])` + verified professor.
+Query: `?cursor=&limit=&status=&skill=&topic=&lookingFor=`
+Response `200`: Paginated list of professor's projects.
+
+### Publications — `/api/v1/publications/professor/*`
+
+#### POST `/publications/professor`
+Auth: required, `requireRole(['professor'])` + verified professor.
+Request: `{ "title": string, "abstract": string?, "journalOrConference": string?, "publishedDate": string?, "doi": string?, "externalUrl": string?, "pdfUrl": string?, "authorIds": string[], "topicIds": string[]? }`
+Must include professor's own userId in `authorIds`.
+Response `201`: Created publication.
+
+#### GET `/publications/professor/me`
+Auth: required, `requireRole(['professor'])` + verified professor.
+Query: `?cursor=&limit=`
+Response `200`: Paginated list of professor's publications.
+
+#### PATCH `/publications/professor/:id`
+Auth: required, `requireRole(['professor'])` + ownership (must be author).
+Request: `{ "title": string?, "abstract": string?, "journalOrConference": string?, "publishedDate": string?, "doi": string?, "externalUrl": string?, "pdfUrl": string? }`
+Response `200`: Updated publication.
+
+#### DELETE `/publications/professor/:id`
+Auth: required, `requireRole(['professor'])` + ownership (must be author).
+Response `204`.
+
+#### POST `/publications/professor/:id/authors`
+Auth: required, `requireRole(['professor'])` + ownership (must be author).
+Request: `{ "authorId": string, "authorOrder": int }`
+Response `201`: Added co-author.
+
+#### DELETE `/publications/professor/:id/authors/:authorId`
+Auth: required, `requireRole(['professor'])` + ownership.
+Response `204`.
+
+#### PATCH `/publications/professor/:id/authors/:authorId`
+Auth: required, `requireRole(['professor'])` + ownership.
+Request: `{ "authorOrder": int }`
+Response `200`: Updated author order.
+
+#### GET `/publications/professor/me`
+Auth: required, `requireRole(['professor'])` + verified professor.
+Query: `?cursor=&limit=`
+Response `200`: Paginated list of professor's publications.
+
+### Admin — `/api/v1/admin/*` (Phase 5 owns, `requireRole(['admin'])` on every route)
+`GET /admin/verifications?status=pending` · `PATCH /admin/verifications/:id` (`{ "status": "approved"|"rejected" }`)
+`GET /admin/reports?status=open` · `PATCH /admin/reports/:id` (`{ "status", "action": "none"|"restrict"|"suspend"|"ban" }`)
+`GET /admin/metrics` → aggregate counts per spec §25 (users, active users, projects, teams, publications, orgs, startups, events, **collaborations formed** — not vanity metrics, per §42).
+
+---
+
 ## Ownership
 This file is created in Phase 0 and **owned/extended by Phase 5** (API Endpoints) as concrete route handlers are implemented. Any endpoint not yet listed here must be documented here *before* being coded, not after.

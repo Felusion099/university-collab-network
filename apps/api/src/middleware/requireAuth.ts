@@ -59,7 +59,7 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
     };
 
     next();
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }

@@ -9,7 +9,7 @@ export async function list(req: Request, res: Response, next: NextFunction): Pro
     res
       .status(200)
       .json(await notificationService.list(req.user!.id, cursor, limit, unreadOnly === "true"));
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -18,7 +18,7 @@ export async function markRead(req: Request, res: Response, next: NextFunction):
   try {
     const result = await notificationService.markRead(req.user!.id, req.params.id as string);
     res.status(200).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -30,7 +30,7 @@ export async function getPreferences(
 ): Promise<void> {
   try {
     res.status(200).json(await notificationService.getPreferences(req.user!.id));
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -46,7 +46,7 @@ export async function updatePreferences(
       req.body as UpdateNotificationPreferencesRequest,
     );
     res.status(200).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }

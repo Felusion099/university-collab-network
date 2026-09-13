@@ -11,7 +11,7 @@ export async function create(req: Request, res: Response, next: NextFunction): P
     const { addresseeId, message } = req.body as CreateConnectionRequest;
     const result = await connectionService.create(req.user!.id, addresseeId, message);
     res.status(201).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -25,7 +25,7 @@ export async function updateStatus(req: Request, res: Response, next: NextFuncti
       status,
     );
     res.status(200).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -35,7 +35,7 @@ export async function list(req: Request, res: Response, next: NextFunction): Pro
     const { cursor, limit } = req.query as unknown as PaginationQuery;
     const { status } = req.query as Record<string, string | undefined>;
     res.status(200).json(await connectionService.list(req.user!.id, cursor, limit, status));
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }

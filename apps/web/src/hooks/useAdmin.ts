@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { adminApi, type Report } from "@/services/api/admin";
+import { adminApi, type Report, type AdminMetrics } from "@/services/api/admin";
 import { useToastStore } from "@/stores/toast.store";
 
 export function usePendingVerifications() {
@@ -20,7 +20,7 @@ export function useUpdateVerification() {
         useToastStore
           .getState()
           .show(
-            `Verification ${status} for ${result.userName}`,
+            `Verification ${status} for ${result.data.userName}`,
             status === "approved" ? "success" : "default",
           );
       }
@@ -29,9 +29,9 @@ export function useUpdateVerification() {
 }
 
 export function useOpenReports() {
-  return useQuery({
+  return useQuery<{ data: Report[] }>({
     queryKey: ["admin-reports", "open"],
-    queryFn: () => adminApi.getReports("open"),
+    queryFn: () => adminApi.getOpenReports(),
   });
 }
 
@@ -45,14 +45,14 @@ export function useUpdateReport() {
       if (result) {
         useToastStore
           .getState()
-          .show(`Report resolved: ${result.reportedName} (${result.action})`, "success");
+          .show(`Report resolved: ${result.data.reportedName} (${result.data.action})`, "success");
       }
     },
   });
 }
 
 export function useAdminMetrics() {
-  return useQuery({
+  return useQuery<AdminMetrics>({
     queryKey: ["admin-metrics"],
     queryFn: () => adminApi.getMetrics(),
   });

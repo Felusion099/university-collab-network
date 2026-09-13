@@ -7,7 +7,7 @@ export async function list(req: Request, res: Response, next: NextFunction): Pro
     const { cursor, limit } = req.query as unknown as PaginationQuery;
     const { category } = req.query as Record<string, string | undefined>;
     res.status(200).json(await skillService.list(cursor, limit, category));
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -16,7 +16,7 @@ export async function create(req: Request, res: Response, next: NextFunction): P
   try {
     const result = await skillService.create(req.body as CreateSkillRequest);
     res.status(201).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -26,7 +26,7 @@ export async function addToSelf(req: Request, res: Response, next: NextFunction)
     const { proficiency } = req.body as { proficiency?: SkillProficiency };
     const result = await skillService.addToSelf(req.user!.id, req.params.id as string, proficiency);
     res.status(201).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -39,7 +39,7 @@ export async function removeFromSelf(
   try {
     await skillService.removeFromSelf(req.user!.id, req.params.id as string);
     res.status(204).send();
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -57,7 +57,7 @@ export async function addSkillToSelf(
 
     const result = await skillService.addToSelf(req.user!.id, skillId, proficiency);
     res.status(201).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }

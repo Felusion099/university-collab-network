@@ -19,7 +19,7 @@ export async function list(req: Request, res: Response, next: NextFunction): Pro
       .json(
         await opportunityService.list({ cursor, limit, type, department, deadlineBefore, skill }),
       );
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -27,7 +27,7 @@ export async function list(req: Request, res: Response, next: NextFunction): Pro
 export async function getById(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     res.status(200).json(await opportunityService.getById(req.params.id as string));
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -39,7 +39,7 @@ export async function create(req: Request, res: Response, next: NextFunction): P
       req.body as CreateOpportunityRequest,
     );
     res.status(201).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -52,7 +52,7 @@ export async function update(req: Request, res: Response, next: NextFunction): P
       req.body as UpdateOpportunityRequest,
     );
     res.status(200).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -61,7 +61,7 @@ export async function remove(req: Request, res: Response, next: NextFunction): P
   try {
     await opportunityService.remove(req.user!.id, req.params.id as string);
     res.status(204).send();
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -70,7 +70,7 @@ export async function apply(req: Request, res: Response, next: NextFunction): Pr
   try {
     const result = await opportunityService.apply(req.user!.id, req.params.id as string);
     res.status(201).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -89,7 +89,7 @@ export async function updateApplication(
       status,
     );
     res.status(200).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }

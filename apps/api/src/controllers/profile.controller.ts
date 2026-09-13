@@ -1,3 +1,4 @@
+import { userRepository } from "../repositories/index.js";
 import type { Request, Response, NextFunction } from "express";
 import * as profileService from "../services/profile.service.js";
 import type { UpdateProfileRequest, UpdatePrivacySettingsRequest } from "@app/shared-types";
@@ -13,7 +14,7 @@ export async function getByUsername(
       req.user?.id,
     );
     res.status(200).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -29,7 +30,7 @@ export async function updateOwnProfile(
       req.body as UpdateProfileRequest,
     );
     res.status(200).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -42,7 +43,7 @@ export async function getOwnPrivacy(
   try {
     const result = await profileService.getOwnPrivacySettings(req.user!.id);
     res.status(200).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -58,7 +59,17 @@ export async function updateOwnPrivacy(
       req.body as UpdatePrivacySettingsRequest,
     );
     res.status(200).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
+    next(err);
+  }
+}
+
+export async function listByRole(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { role, limit = 20, cursor } = req.query;
+    const result = await userRepository.findByRole(role as string, Number(limit), cursor as string);
+    res.status(200).json(result);
+  } catch (err: unknown) {
     next(err);
   }
 }

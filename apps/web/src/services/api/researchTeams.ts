@@ -1,11 +1,5 @@
-/**
- * PROVISIONAL mock for GET /research-teams and GET /research-teams/:id —
- * already documented in API_CONTRACT.md §3, no new HANDOFF needed. Field
- * names mirror `CreateResearchTeamRequestSchema` exactly (`name`,
- * `description`, `topicIds` — represented here as `topicNames`, same
- * FK-resolution reasoning as `publications.ts`'s `authorNames`).
- * `piName`/`memberCount` are read-only rollups a card needs.
- */
+import { apiFetch } from "./client";
+
 export interface ResearchTeamSummary {
   id: string;
   name: string;
@@ -21,47 +15,49 @@ export interface ResearchTeamListParams {
   limit?: number;
 }
 
-const MOCK_TEAMS: ResearchTeamSummary[] = [
-  {
-    id: "team-1",
-    name: "Iyer NLP Lab",
-    description: "Working on low-resource machine translation and evaluation methods.",
-    piName: "Dr. Radhika Iyer",
-    memberCount: 4,
-    topicNames: ["Natural Language Processing"],
-  },
-  {
-    id: "team-2",
-    name: "Materials Durability Group",
-    description: "Corrosion-resistant coatings for marine and industrial applications.",
-    piName: "Dr. Vikram Rao",
-    memberCount: 3,
-    topicNames: ["Materials Science — Corrosion Resistance"],
-  },
-];
+/* Backend row mapping — list rows include pi (SAFE_USER_SELECT → username),
+ * researchTeamTopics w/ nested topic, and a memberships _count rollup
+ * (added to researchTeam.repository.ts list include). Detail rows embed
+ * the memberships array directly. */
+function mapTeam(raw: Record<string, unknown>): ResearchTeamSummary {
+  const pi = raw.pi as { username?: string } | null | undefined;
+  const topics = (raw.researchTeamTopics as { researchTopic?: { name?: string } }[] | undefined) ?? [];
+  const memberships = raw.memberships as unknown[] | undefined;
+  const count = raw._count as { memberships?: number } | undefined;
+  return {
+    id: String(raw.id),
+    name: String(raw.name),
+    description: (raw.description as string | null) ?? null,
+    piName: pi?.username ?? "Unassigned",
+    memberCount: memberships ? memberships.length : (count?.memberships ?? 0),
+    topicNames: topics
+      .map((t) => t.researchTopic?.name ?? "")
+      .filter((n) => n !== ""),
+  };
+}
 
 export const researchTeamsApi = {
   list: async (
     params: ResearchTeamListParams,
   ): Promise<{ data: ResearchTeamSummary[]; nextCursor: string | null }> => {
-    await new Promise((resolve) => setTimeout(resolve, 350));
-    const limit = params.limit ?? 20;
-    const offset = params.cursor ? Number.parseInt(params.cursor, 10) : 0;
-
-    let results = MOCK_TEAMS;
-    if (params.q) {
-      const q = params.q.toLowerCase();
-      results = results.filter((t) => t.name.toLowerCase().includes(q));
-    }
-
-    const page = results.slice(offset, offset + limit);
-    const nextOffset = offset + limit;
-    const nextCursor = nextOffset < results.length ? String(nextOffset) : null;
-    return { data: page, nextCursor };
+    const search = new URLSearchParams();
+    if (params.cursor) search.set("cursor", params.cursor);
+    if (params.limit) search.set("limit", String(params.limit));
+    const page = await apiFetch<{ data: Record<string, unknown>[]; nextCursor: string | null }>(
+      `/research-teams${search.toString() ? `?${search.toString()}` : ""}`,
+    );
+    return { data: page.data.map(mapTeam), nextCursor: page.nextCursor };
   },
 
   getById: async (id: string): Promise<ResearchTeamSummary | null> => {
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    return MOCK_TEAMS.find((t) => t.id === id) ?? null;
+    try {
+      const raw = await apiFetch<Record<string, unknown>>(`/research-teams/${id}`);
+      return mapTeam(raw);
+    } catch (err) {
+      if (err && typeof err === "object" && "status" in err && (err as { status: number }).status === 404) {
+        return null;
+      }
+      throw err;
+    }
   },
 };

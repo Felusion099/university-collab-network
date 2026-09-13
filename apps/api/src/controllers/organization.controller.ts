@@ -18,7 +18,7 @@ export async function list(req: Request, res: Response, next: NextFunction): Pro
         category,
       }),
     );
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -26,7 +26,7 @@ export async function list(req: Request, res: Response, next: NextFunction): Pro
 export async function getBySlug(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     res.status(200).json(await organizationService.getBySlug(req.params.slug as string));
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -38,7 +38,7 @@ export async function create(req: Request, res: Response, next: NextFunction): P
       req.body as CreateOrganizationRequest,
     );
     res.status(201).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -51,7 +51,7 @@ export async function update(req: Request, res: Response, next: NextFunction): P
       req.body as UpdateOrganizationRequest,
     );
     res.status(200).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -60,7 +60,7 @@ export async function remove(req: Request, res: Response, next: NextFunction): P
   try {
     await organizationService.remove(req.user!.id, req.params.id as string);
     res.status(204).send();
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -69,7 +69,7 @@ export async function join(req: Request, res: Response, next: NextFunction): Pro
   try {
     const result = await organizationService.join(req.user!.id, req.params.id as string);
     res.status(201).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -78,7 +78,7 @@ export async function leave(req: Request, res: Response, next: NextFunction): Pr
   try {
     await organizationService.leave(req.user!.id, req.params.id as string);
     res.status(204).send();
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }

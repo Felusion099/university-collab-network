@@ -1,8 +1,64 @@
+import { apiFetch } from "./client";
 import type { UserRole } from "@app/shared-types";
 
 /**
- * PROVISIONAL — see AGENT_HANDOFF.md HANDOFF-22.
+ * PROVISIONAL mock for `/admin/*` (API_CONTRACT.md §9, Phase 5-owned
+ * routes, `requireRole(['admin'])` on every one). Same read-schema gap as
+ * every other services/api/*.ts file this phase — additionally, the two
+ * PATCH actions here (`updateVerification`, `updateReport`) don't persist
+ * anywhere real; they mutate the in-memory mock array so the page feels
+ * interactive, exactly the same "mocked but functional" pattern as every
+ * other list page this session, not a new pattern invented for admin.
  *
+ * Metrics deliberately mirror PROJECT_SPEC.md §42/§56's explicit
+ * instruction: collaboration/activity counts, never vanity metrics
+ * (no likes/followers/screen-time fields exist here at all, on purpose).
+ */
+export interface VerificationRequest {
+  id: string;
+  userName: string;
+  requestedRole: "professor" | "researcher" | "club_rep" | "startup_member";
+  submittedAt: string; // ISO date
+  status: "pending" | "approved" | "rejected";
+}
+
+export interface Report {
+  id: string;
+  reportedName: string;
+  reason: string;
+  submittedAt: string; // ISO date
+  status: "open" | "resolved";
+  action: "none" | "restrict" | "suspend" | "ban";
+}
+
+export interface AdminMetrics {
+  totalUsers: number;
+  activeUsersLast30Days: number;
+  projects: number;
+  researchTeams: number;
+  publications: number;
+  organizations: number;
+  startups: number;
+  events: number;
+  collaborationsFormed: number;
+}
+
+export const adminApi = {
+  getVerifications: (status?: string): Promise<{ data: VerificationRequest[] }> => 
+    apiFetch<{ data: VerificationRequest[] }>(`/admin/verifications${status ? `?status=${status}` : ''}`),
+  getOpenReports: (): Promise<{ data: Report[] }> => 
+    apiFetch<{ data: Report[] }>("/admin/reports?status=open"),
+  getMetrics: (): Promise<AdminMetrics> => 
+    apiFetch<AdminMetrics>("/admin/metrics"),
+  updateVerification: (id: string, status: "approved" | "rejected"): Promise<{ data: VerificationRequest }> => 
+    apiFetch(`/admin/verifications/${id}`, { method: "PATCH", body: { status } }),
+  updateReport: (id: string, action: Report["action"] | "none"): Promise<{ data: Report }> => 
+    apiFetch(`/admin/reports/${id}`, { method: "PATCH", body: { action } }),
+};
+
+/**
+ * PROVISIONAL mock for `/users` directory listing endpoint (HANDOFF-22).
+ * 
  * There is no `GET /users?role=` (or equivalent) listing endpoint in
  * API_CONTRACT.md yet, and no read-response Zod schema for it in
  * `packages/shared-types` (that file only has Create/Update request
@@ -10,7 +66,7 @@ import type { UserRole } from "@app/shared-types";
  * Both are owned by other phases (5 and 3 respectively), so per
  * FILE_STRUCTURE.md's Module Ownership Rule this isn't edited here —
  * HANDOFF-22 records the proposed shape instead.
- *
+ * 
  * `DirectoryUserSummary` below is that proposed shape, trimmed from
  * `UserProfileResponseSchema` (packages/shared-types/src/user.ts) to what
  * a directory card actually renders. It is intentionally NOT exported from
@@ -19,7 +75,8 @@ import type { UserRole } from "@app/shared-types";
  * this file's body for a real `apiFetch` call against the real endpoint;
  * every consumer (StudentsListPage, ProfessorsListPage, ResearchersListPage,
  * UserCard) only imports the type and the `directoryApi.list` function, so
- * that swap should not require touching any page or component.
+ * that swap should require changing only that one file, not the pages or
+ * `UserCard`.
  */
 export interface DirectoryUserSummary {
   id: string;
@@ -50,119 +107,105 @@ export interface DirectoryListResponse {
   nextCursor: string | null;
 }
 
-// Deliberately deterministic (no Math.random) so loading states and
-// pagination are actually exercisable/testable, not flaky.
-const MOCK_USERS: DirectoryUserSummary[] = [
-  {
-    id: "u-1",
-    username: "priya.sharma",
-    fullName: "Priya Sharma",
-    role: "student",
-    avatarUrl: null,
-    isUniversityVerified: true,
-    headline: "B.Tech CSE, 3rd year",
-    department: "Computer Science",
-    topSkills: ["React", "Python", "Machine Learning"],
-  },
-  {
-    id: "u-2",
-    username: "arjun.mehta",
-    fullName: "Arjun Mehta",
-    role: "student",
-    avatarUrl: null,
-    isUniversityVerified: false,
-    headline: "B.Sc Physics, 2nd year",
-    department: "Physics",
-    topSkills: ["MATLAB", "Data Analysis"],
-  },
-  {
-    id: "u-3",
-    username: "r.iyer",
-    fullName: "Dr. Radhika Iyer",
-    role: "professor",
-    avatarUrl: null,
-    isUniversityVerified: true,
-    headline: "Associate Professor, Computer Science",
-    department: "Computer Science",
-    topSkills: ["Distributed Systems", "Networks"],
-  },
-  {
-    id: "u-4",
-    username: "k.nair",
-    fullName: "Kiran Nair",
-    role: "researcher",
-    avatarUrl: null,
-    isUniversityVerified: true,
-    headline: "PhD Candidate, Materials Science",
-    department: "Materials Science",
-    topSkills: ["Nanomaterials", "XRD", "Data Analysis"],
-  },
-  {
-    id: "u-5",
-    username: "s.desai",
-    fullName: "Sanjana Desai",
-    role: "student",
-    avatarUrl: null,
-    isUniversityVerified: true,
-    headline: "M.Tech AI, 1st year",
-    department: "Computer Science",
-    topSkills: ["PyTorch", "NLP", "React"],
-  },
-  {
-    id: "u-6",
-    username: "v.rao",
-    fullName: "Dr. Vikram Rao",
-    role: "researcher",
-    avatarUrl: null,
-    isUniversityVerified: false,
-    headline: "Postdoctoral Researcher, Robotics",
-    department: "Mechanical Engineering",
-    topSkills: ["ROS", "Control Systems"],
-  },
-];
-
-const PAGE_SIZE_DEFAULT = 20;
+export interface DirectoryUserDetail {
+  id: string;
+  username: string;
+  fullName: string;
+  role: string;
+  avatarUrl: string | null;
+  isUniversityVerified: boolean;
+  headline: string | null;
+  department: string | null;
+  bio: string | null;
+  topSkills: string[];
+  lookingFor: string | null;
+  cgpa: number | null;
+}
 
 export const directoryApi = {
   /**
-   * Mock implementation of the HANDOFF-22 proposal — filters and
-   * paginates MOCK_USERS in-memory, matching the real response shape
+   * Real implementation of the HANDOFF-22 proposal — filters and
+   * paginates real backend results, matching the documented response shape
    * (`{ data, nextCursor }`, cursor = plain numeric offset here since
    * there's no real backend to generate an opaque one) closely enough
    * that swapping in `apiFetch<DirectoryListResponse>(...)` later is a
    * same-shape drop-in.
    */
   list: async (params: DirectoryListParams): Promise<DirectoryListResponse> => {
-    const limit = params.limit ?? PAGE_SIZE_DEFAULT;
-    const offset = params.cursor ? Number.parseInt(params.cursor, 10) : 0;
-
-    let results = MOCK_USERS.filter((u) => u.role === params.role);
-    if (params.department) {
-      results = results.filter((u) => u.department === params.department);
-    }
-    if (params.skill) {
-      results = results.filter((u) => u.topSkills.includes(params.skill!));
-    }
-    if (params.q) {
-      const q = params.q.toLowerCase();
-      results = results.filter((u) => u.fullName.toLowerCase().includes(q));
-    }
-
-    const page = results.slice(offset, offset + limit);
-    const nextOffset = offset + limit;
-    const nextCursor = nextOffset < results.length ? String(nextOffset) : null;
-
-    // Simulated network latency so the loading skeleton is actually
-    // visible/verifiable rather than resolving instantly.
-    await new Promise((resolve) => setTimeout(resolve, 350));
-
-    return { data: page, nextCursor };
+    const query = new URLSearchParams();
+    if (params.role) query.set('role', params.role);
+    if (params.limit) query.set('limit', String(params.limit));
+    if (params.cursor) query.set('cursor', params.cursor);
+    if (params.q) query.set('q', params.q);
+    const raw = await apiFetch<{
+      data?: {
+        id: string;
+        username: string;
+        email?: string;
+        requestedRole?: string;
+        avatarUrl?: string | null;
+        isUniversityVerified?: boolean;
+        studentProfile?: { fullName?: string; department?: string };
+        professorProfile?: { fullName?: string; department?: string };
+      }[];
+      nextCursor?: string | null;
+    }>(`/users?${query.toString()}`);
+    return {
+      data: (raw.data ?? []).map((u) => ({
+        id: u.id,
+        username: u.username ?? u.email?.split('@')[0] ?? 'unknown',
+        fullName: u.email?.split('@')[0] ?? u.username ?? 'Unknown',
+        role: (u.requestedRole ?? 'student') as UserRole,
+        avatarUrl: u.avatarUrl ?? null,
+        isUniversityVerified: u.isUniversityVerified ?? false,
+        headline: (u.studentProfile?.fullName ? u.studentProfile.fullName + ' — Student' : u.professorProfile?.fullName ? u.professorProfile.fullName + ' — Professor' : null),
+        department: u.studentProfile?.department ?? u.professorProfile?.department ?? null,
+        topSkills: [] as string[],
+      })),
+      nextCursor: raw.nextCursor ?? null,
+    };
   },
 
   /** Mirrors GET /users/:username (API_CONTRACT.md §2, real endpoint —
    * not provisional) shape closely enough for the detail page mock. */
-  getByUsername: async (username: string): Promise<DirectoryUserSummary | null> => {
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    return MOCK_USERS.find((u) => u.username === username) ?? null;
+  getByUsername: async (username: string): Promise<DirectoryUserDetail | null> => {
+    try {
+      const res = await apiFetch<{
+        id: string;
+        username: string;
+        email: string;
+        requestedRole: string;
+        avatarUrl: string | null;
+        isUniversityVerified: boolean;
+        studentProfile?: { fullName: string; department?: string; bio?: string; userSkills?: Array<{ skill?: { name: string } }>; cgpa?: number; lookingFor?: string };
+        professorProfile?: { fullName: string; department?: string; bio?: string; designation?: string; expertise?: string[] };
+        researcherProfile?: { fullName: string; department?: string; bio?: string; researcherType?: string; currentAvailability?: boolean };
+      }>(`/users/${username}`);
+      const profile = (res?.studentProfile ?? res?.professorProfile ?? res?.researcherProfile ?? {}) as {
+        bio?: string;
+        designation?: string;
+        department?: string;
+        userSkills?: Array<{ skill?: { name: string } }>;
+        expertise?: string[];
+        lookingFor?: string;
+        cgpa?: number;
+      };
+      return {
+        id: res.id,
+        username: res.username,
+        fullName: res.email?.split('@')[0] ?? res.username ?? 'Unknown',
+        role: res.requestedRole ?? 'student',
+        avatarUrl: res.avatarUrl ?? null,
+        isUniversityVerified: res.isUniversityVerified ?? false,
+        headline: profile.bio ? profile.bio.slice(0, 60) + (profile.bio.length > 60 ? '...' : '') : (profile.designation ? profile.designation : (profile.department ? profile.department : null)),
+        department: profile.department ?? null,
+        bio: profile.bio ?? null,
+        topSkills: profile.userSkills?.map((s) => s.skill?.name ?? "") ?? profile.expertise ?? [],
+        lookingFor: profile.lookingFor ?? null,
+        cgpa: profile.cgpa ?? null,
+      };
+    } catch {
+      return null;
+    }
   },
 };

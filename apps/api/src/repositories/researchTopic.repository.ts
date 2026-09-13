@@ -8,6 +8,10 @@ export class ResearchTopicRepository {
       skip: params.skip,
       take: params.take + 1,
       orderBy: { name: "asc" },
+      include: {
+        parentTopic: { select: { name: true } },
+        _count: { select: { researchTeamTopics: true, publicationTopics: true } },
+      },
     });
   }
 

@@ -1,3 +1,5 @@
+import { apiFetch } from "./client";
+
 /**
  * PROVISIONAL mock for `/admin/*` (API_CONTRACT.md §9, Phase 5-owned
  * routes, `requireRole(['admin'])` on every one). Same read-schema gap as
@@ -40,96 +42,15 @@ export interface AdminMetrics {
   collaborationsFormed: number;
 }
 
-const verifications: VerificationRequest[] = [
-  {
-    id: "v-1",
-    userName: "Dr. Ananya Gupta",
-    requestedRole: "professor",
-    submittedAt: "2026-09-01",
-    status: "pending",
-  },
-  {
-    id: "v-2",
-    userName: "Rohan Kapoor",
-    requestedRole: "club_rep",
-    submittedAt: "2026-08-28",
-    status: "pending",
-  },
-  {
-    id: "v-3",
-    userName: "Dr. Vikram Rao",
-    requestedRole: "researcher",
-    submittedAt: "2026-08-15",
-    status: "approved",
-  },
-];
-
-const reports: Report[] = [
-  {
-    id: "r-1",
-    reportedName: "Startup: QuickNotes",
-    reason: "Spammy messages sent to multiple students",
-    submittedAt: "2026-09-02",
-    status: "open",
-    action: "none",
-  },
-  {
-    id: "r-2",
-    reportedName: "User: a.singh",
-    reason: "Impersonating a professor",
-    submittedAt: "2026-08-30",
-    status: "resolved",
-    action: "suspend",
-  },
-];
-
-const metrics: AdminMetrics = {
-  totalUsers: 1284,
-  activeUsersLast30Days: 611,
-  projects: 47,
-  researchTeams: 12,
-  publications: 38,
-  organizations: 29,
-  startups: 6,
-  events: 21,
-  collaborationsFormed: 356,
-};
-
 export const adminApi = {
-  getVerifications: async (
-    status: "pending" | "approved" | "rejected" = "pending",
-  ): Promise<VerificationRequest[]> => {
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    return verifications.filter((v) => v.status === status);
-  },
-
-  updateVerification: async (
-    id: string,
-    status: "approved" | "rejected",
-  ): Promise<VerificationRequest | null> => {
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    const item = verifications.find((v) => v.id === id);
-    if (!item) return null;
-    item.status = status;
-    return item;
-  },
-
-  getReports: async (status: "open" | "resolved" = "open"): Promise<Report[]> => {
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    return reports.filter((r) => r.status === status);
-  },
-
-  updateReport: async (id: string, action: Report["action"]): Promise<Report | null> => {
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    const item = reports.find((r) => r.id === id);
-    if (!item) return null;
-    item.action = action;
-    item.status = "resolved";
-    return item;
-  },
-
-  getMetrics: async (): Promise<AdminMetrics> => {
-    await new Promise((resolve) => setTimeout(resolve, 300));
-    return metrics;
-  },
+  getVerifications: (status?: string): Promise<{ data: VerificationRequest[] }> => 
+    apiFetch<{ data: VerificationRequest[] }>(`/admin/verifications${status ? `?status=${status}` : ''}`),
+  getOpenReports: (): Promise<{ data: Report[] }> => 
+    apiFetch<{ data: Report[] }>("/admin/reports?status=open"),
+  getMetrics: (): Promise<AdminMetrics> => 
+    apiFetch<AdminMetrics>("/admin/metrics"),
+  updateVerification: (id: string, status: "approved" | "rejected"): Promise<{ data: VerificationRequest }> => 
+    apiFetch(`/admin/verifications/${id}`, { method: "PATCH", body: { status } }),
+  updateReport: (id: string, action: Report["action"] | "none"): Promise<{ data: Report }> => 
+    apiFetch(`/admin/reports/${id}`, { method: "PATCH", body: { action } }),
 };

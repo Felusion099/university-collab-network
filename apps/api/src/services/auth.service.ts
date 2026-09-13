@@ -283,7 +283,7 @@ export async function signup(input: SignupRequest): Promise<SignupResponse> {
 
   try {
     await emailService.sendVerificationEmail(user.email, verificationToken);
-  } catch (err) {
+  } catch (err: unknown) {
     // Don't fail signup if the transactional email provider is unavailable —
     // the user can request another verification email later. Log loudly.
     logger.error(err, "Failed to send verification email after signup");
@@ -411,7 +411,7 @@ export async function forgotPassword(email: string): Promise<ForgotPasswordRespo
     });
     try {
       await emailService.sendPasswordResetEmail(user.email, token);
-    } catch (err) {
+    } catch (err: unknown) {
       logger.error(err, "Failed to send password reset email");
     }
   }

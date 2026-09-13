@@ -49,7 +49,6 @@ export default function OpportunitiesListPage(): JSX.Element {
           {isLoading && (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
-                // eslint-disable-next-line react/no-array-index-key -- static skeleton count, never reordered
                 <OpportunityCard.Skeleton key={i} />
               ))}
             </div>

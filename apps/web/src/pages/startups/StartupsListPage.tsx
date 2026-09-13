@@ -22,7 +22,6 @@ export default function StartupsListPage(): JSX.Element {
       {isLoading && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            // eslint-disable-next-line react/no-array-index-key -- static skeleton count, never reordered
             <StartupCard.Skeleton key={i} />
           ))}
         </div>

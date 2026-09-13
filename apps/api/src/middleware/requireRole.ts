@@ -49,7 +49,7 @@ export function requireRole(allowedRoles: UserRole[]) {
       }
 
       next();
-    } catch (err) {
+    } catch (err: unknown) {
       next(err);
     }
   };

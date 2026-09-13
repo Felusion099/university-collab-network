@@ -13,17 +13,6 @@ export type OrganizationType = z.infer<typeof OrganizationTypeEnum>;
 export const MembershipRoleEnum = z.enum(["member", "leader", "advisor", "founder", "pi"]);
 export type MembershipRole = z.infer<typeof MembershipRoleEnum>;
 
-export const ProjectStatusEnum = z.enum([
-  "idea",
-  "planning",
-  "development",
-  "beta",
-  "active",
-  "completed",
-  "archived",
-]);
-export type ProjectStatus = z.infer<typeof ProjectStatusEnum>;
-
 export const SkillRoleNeededEnum = z.enum([
   "frontend",
   "backend",
@@ -82,6 +71,28 @@ export type CreateResearchTopicRequest = z.infer<typeof CreateResearchTopicReque
 
 export const UpdateResearchTopicRequestSchema = CreateResearchTopicRequestSchema.partial();
 export type UpdateResearchTopicRequest = z.infer<typeof UpdateResearchTopicRequestSchema>;
+
+// Professor research topic status update
+export const ResearchTopicStatusEnum = z.enum([
+  "DRAFT",
+  "ACTIVE",
+  "PAUSED",
+  "COMPLETED",
+  "ARCHIVED",
+]);
+export type ResearchTopicStatus = z.infer<typeof ResearchTopicStatusEnum>;
+
+export const UpdateResearchTopicStatusRequestSchema = z.object({
+  status: ResearchTopicStatusEnum,
+});
+export type UpdateResearchTopicStatusRequest = z.infer<typeof UpdateResearchTopicStatusRequestSchema>;
+
+// Professor-specific research topic request (same as admin but for professor)
+export const CreateResearchTopicByProfessorRequestSchema = CreateResearchTopicRequestSchema;
+export type CreateResearchTopicByProfessorRequest = z.infer<typeof CreateResearchTopicByProfessorRequestSchema>;
+
+export const UpdateResearchTopicByProfessorRequestSchema = UpdateResearchTopicRequestSchema;
+export type UpdateResearchTopicByProfessorRequest = z.infer<typeof UpdateResearchTopicByProfessorRequestSchema>;
 
 // ============================================================================
 // Organizations — /api/v1/organizations (clubs/societies/startups per D-002)
@@ -146,6 +157,17 @@ export type UpdatePublicationRequest = z.infer<typeof UpdatePublicationRequestSc
 // Projects — /api/v1/projects
 // ============================================================================
 
+export const ProjectStatusEnum = z.enum([
+  "idea",
+  "planning",
+  "development",
+  "beta",
+  "active",
+  "completed",
+  "archived",
+]);
+export type ProjectStatus = z.infer<typeof ProjectStatusEnum>;
+
 export const CreateProjectRequestSchema = z.object({
   name: z.string().min(1),
   logoUrl: z.string().url().nullable().optional(),
@@ -165,6 +187,22 @@ export type CreateProjectRequest = z.infer<typeof CreateProjectRequestSchema>;
 
 export const UpdateProjectRequestSchema = CreateProjectRequestSchema.partial();
 export type UpdateProjectRequest = z.infer<typeof UpdateProjectRequestSchema>;
+
+export const UpdateProjectStatusRequestSchema = z.object({
+  status: ProjectStatusEnum,
+});
+export type UpdateProjectStatusRequest = z.infer<typeof UpdateProjectStatusRequestSchema>;
+
+export const AddProjectMemberRequestSchema = z.object({
+  userId: z.string().uuid(),
+  roleOnProject: z.string().optional(),
+});
+export type AddProjectMemberRequest = z.infer<typeof AddProjectMemberRequestSchema>;
+
+export const UpdateProjectMemberRoleRequestSchema = z.object({
+  roleOnProject: z.string(),
+});
+export type UpdateProjectMemberRoleRequest = z.infer<typeof UpdateProjectMemberRoleRequestSchema>;
 
 // ============================================================================
 // Skills — /api/v1/skills

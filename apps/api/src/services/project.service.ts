@@ -1,9 +1,10 @@
 import { projectRepository } from "../repositories/project.repository.js";
+import { userRepository } from "../repositories/user.repository.js";
 import { prisma } from "../repositories/prisma.js";
 import { matchingService } from "./matching.service.js";
 import { NotFoundError, ForbiddenError, ConflictError } from "../utils/errors.js";
 import { buildPaginatedResponse, toPageParams } from "../utils/pagination.js";
-import type { CreateProjectRequest, UpdateProjectRequest } from "@app/shared-types";
+import type { CreateProjectRequest, UpdateProjectRequest, ProjectStatus } from "@app/shared-types";
 
 export async function list(params: {
   cursor?: string;
@@ -134,4 +135,152 @@ export async function findMatches(requesterId: string, projectId: string, limit:
   });
 
   return scored.sort((a, b) => b.matchScore - a.matchScore).slice(0, limit);
+}
+
+/**
+ * ============================================================================
+ * PROFESSOR PROJECT MANAGEMENT (New functionality for Phase 9+)
+ * ============================================================================
+ * 
+ * These functions allow verified professors to manage their projects.
+ * Ownership is determined by the `createdBy` field.
+ */
+
+// Project status values come from the shared-types ProjectStatus (single
+// source of truth, matching the Prisma enum). No local duplicate enum.
+
+const VALID_PROJECT_TRANSITIONS: Record<string, string[]> = {
+  idea: ['planning', 'archived'],
+  planning: ['development', 'archived'],
+  development: ['beta', 'active', 'archived'],
+  beta: ['active', 'archived'],
+  active: ['completed', 'archived'],
+  completed: ['archived'],
+  archived: [],
+} as const;
+
+/**
+ * Professor adds a member to their project
+ */
+export async function addMemberByProfessor(
+  professorId: string,
+  projectId: string,
+  userId: string,
+  roleOnProject?: string
+) {
+  // Check ownership - professor must be creator
+  const existing = await prisma.project.findFirst({
+    where: { id: projectId, createdBy: professorId },
+  });
+  if (!existing) throw new ForbiddenError("Only the project creator can manage members");
+
+  // Check if user is already a member
+  const alreadyMember = await projectRepository.isOwnerOrMember(projectId, userId);
+  if (alreadyMember) throw new ConflictError("Already a member of this project");
+
+  // Verify the user being added is a valid student or researcher
+  const user = await userRepository.findById(userId);
+  if (!user) throw new NotFoundError("User not found");
+
+  return prisma.projectMember.create({
+    data: { projectId, userId, roleOnProject },
+  });
+}
+
+/**
+ * Professor removes a member from their project
+ */
+export async function removeMemberByProfessor(
+  professorId: string,
+  projectId: string,
+  userId: string
+) {
+  // Check ownership
+  const existing = await prisma.project.findFirst({
+    where: { id: projectId, createdBy: professorId },
+  });
+  if (!existing) throw new ForbiddenError("Only the project creator can manage members");
+
+  // Cannot remove the creator themselves
+  if (userId === existing.createdBy) {
+    throw new ForbiddenError("Cannot remove the project creator from the project");
+  }
+
+  const membership = await prisma.projectMember.findUnique({
+    where: { projectId_userId: { projectId, userId } },
+  });
+  if (!membership) throw new NotFoundError("Membership not found");
+
+  await prisma.projectMember.delete({ where: { projectId_userId: { projectId, userId } } });
+}
+
+/**
+ * Professor updates a member's role in their project
+ */
+export async function updateMemberRoleByProfessor(
+  professorId: string,
+  projectId: string,
+  userId: string,
+  newRole: string
+) {
+  // Check ownership
+  const existing = await prisma.project.findFirst({
+    where: { id: projectId, createdBy: professorId },
+  });
+  if (!existing) throw new ForbiddenError("Only the project creator can manage members");
+
+  // Cannot change creator's role
+  if (userId === existing.createdBy) {
+    throw new ForbiddenError("Cannot change the project creator's role");
+  }
+
+  const membership = await prisma.projectMember.findUnique({
+    where: { projectId_userId: { projectId, userId } },
+  });
+  if (!membership) throw new NotFoundError("Membership not found");
+
+  return prisma.projectMember.update({
+    where: { projectId_userId: { projectId, userId } },
+    data: { roleOnProject: newRole },
+  });
+}
+
+/**
+ * Professor updates their project lifecycle status
+ * Validates valid state transitions
+ */
+export async function updateStatusByProfessor(professorId: string, id: string, newStatus: ProjectStatus) {
+  const existing = await projectRepository.findById(id);
+  if (!existing) throw new NotFoundError("Project not found");
+
+  // Check ownership
+  if (existing.createdBy !== professorId) {
+    throw new ForbiddenError("Only the project creator can update project status");
+  }
+
+  const currentStatus = existing.status;
+  const validNextStatuses = VALID_PROJECT_TRANSITIONS[currentStatus as keyof typeof VALID_PROJECT_TRANSITIONS] || [];
+  
+  if (!validNextStatuses.includes(newStatus)) {
+    throw new ForbiddenError(`Invalid status transition from ${currentStatus} to ${newStatus}`);
+  }
+
+  return projectRepository.update(id, { status: newStatus });
+}
+
+/**
+ * Professor gets their own projects
+ */
+export async function listByProfessor(professorId: string, params: {
+  cursor?: string;
+  limit: number;
+  status?: string;
+  skill?: string;
+  topic?: string;
+  lookingFor?: string;
+}) {
+  const { skip, take } = toPageParams(params.cursor, params.limit);
+  // Filter by creator
+  const items = await projectRepository.list({ ...params, skip, take, createdBy: professorId });
+  return buildPaginatedResponse(items, skip, take);
 }

@@ -58,6 +58,20 @@ export class UserRepository {
     });
   }
 
+  async findByRole(role?: string, limit = 20, cursor?: string) {
+    const offset = cursor ? Number.parseInt(cursor, 10) : 0;
+    const where: Prisma.UserWhereInput = role
+      ? { requestedRole: role as Prisma.EnumUserRoleFilter["equals"] }
+      : {};
+    const users = await prisma.user.findMany({
+      where,
+      skip: offset,
+      take: limit,
+      select: { id: true, username: true, email: true, requestedRole: true, status: true, avatarUrl: true, isUniversityVerified: true },
+    });
+    return { data: users, nextCursor: users.length === limit ? String(offset + limit) : null };
+  }
+
   async create(data: Prisma.UserCreateInput) {
     return prisma.user.create({
       data,
@@ -68,6 +82,12 @@ export class UserRepository {
     return prisma.user.update({
       where: { id },
       data,
+    });
+  }
+
+  async findProfessorProfile(userId: string) {
+    return prisma.professorProfile.findUnique({
+      where: { userId },
     });
   }
 }

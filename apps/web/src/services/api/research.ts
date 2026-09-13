@@ -1,13 +1,5 @@
-/**
- * PROVISIONAL mock for GET /research (research topics) and
- * GET /research/:slug — already documented in API_CONTRACT.md §3's
- * generic convention, no new HANDOFF needed. Same read-schema gap as
- * every other services/api/*.ts file this phase. Field names mirror
- * `CreateResearchTopicRequestSchema` exactly (`name`, `description`,
- * `parentTopicId`), plus `slug` (DATABASE_SCHEMA.md: unique, used for the
- * `/research/:topic` route param) and a `teamCount`/`publicationCount`
- * rollup a directory card needs but the create schema doesn't carry.
- */
+import { apiFetch } from "./client";
+
 export interface ResearchTopicSummary {
   id: string;
   name: string;
@@ -24,58 +16,48 @@ export interface ResearchTopicListParams {
   limit?: number;
 }
 
-const MOCK_TOPICS: ResearchTopicSummary[] = [
-  {
-    id: "rt-1",
-    name: "Natural Language Processing",
-    slug: "natural-language-processing",
-    description: "Low-resource translation, evaluation, and dialogue systems.",
-    parentTopicName: "Machine Learning",
-    teamCount: 2,
-    publicationCount: 3,
-  },
-  {
-    id: "rt-2",
-    name: "Materials Science — Corrosion Resistance",
-    slug: "materials-corrosion-resistance",
-    description: "Nanostructured coatings and long-term degradation testing.",
-    parentTopicName: null,
-    teamCount: 1,
-    publicationCount: 1,
-  },
-  {
-    id: "rt-3",
-    name: "Robotics — Control Systems",
-    slug: "robotics-control-systems",
-    description: null,
-    parentTopicName: "Robotics",
-    teamCount: 1,
-    publicationCount: 0,
-  },
-];
+/* Backend row mapping — list rows carry _count rollups + parentTopic name
+ * (added to researchTopic.repository.ts list include); the detail
+ * (getBySlug) response embeds the relations directly, so counts are read
+ * from the arrays when present and fall back to _count for list rows. */
+function mapTopic(raw: Record<string, unknown>): ResearchTopicSummary {
+  const parent = raw.parentTopic as { name?: string } | null | undefined;
+  const count = raw._count as { researchTeamTopics?: number; publicationTopics?: number } | undefined;
+  const teamTopics = raw.researchTeamTopics as unknown[] | undefined;
+  const pubTopics = raw.publicationTopics as unknown[] | undefined;
+  return {
+    id: String(raw.id),
+    name: String(raw.name),
+    slug: String(raw.slug),
+    description: (raw.description as string | null) ?? null,
+    parentTopicName: parent?.name ?? null,
+    teamCount: teamTopics ? teamTopics.length : (count?.researchTeamTopics ?? 0),
+    publicationCount: pubTopics ? pubTopics.length : (count?.publicationTopics ?? 0),
+  };
+}
 
 export const researchApi = {
   list: async (
     params: ResearchTopicListParams,
   ): Promise<{ data: ResearchTopicSummary[]; nextCursor: string | null }> => {
-    await new Promise((resolve) => setTimeout(resolve, 350));
-    const limit = params.limit ?? 20;
-    const offset = params.cursor ? Number.parseInt(params.cursor, 10) : 0;
-
-    let results = MOCK_TOPICS;
-    if (params.q) {
-      const q = params.q.toLowerCase();
-      results = results.filter((t) => t.name.toLowerCase().includes(q));
-    }
-
-    const page = results.slice(offset, offset + limit);
-    const nextOffset = offset + limit;
-    const nextCursor = nextOffset < results.length ? String(nextOffset) : null;
-    return { data: page, nextCursor };
+    const search = new URLSearchParams();
+    if (params.cursor) search.set("cursor", params.cursor);
+    if (params.limit) search.set("limit", String(params.limit));
+    const page = await apiFetch<{ data: Record<string, unknown>[]; nextCursor: string | null }>(
+      `/research-topics${search.toString() ? `?${search.toString()}` : ""}`,
+    );
+    return { data: page.data.map(mapTopic), nextCursor: page.nextCursor };
   },
 
   getBySlug: async (slug: string): Promise<ResearchTopicSummary | null> => {
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    return MOCK_TOPICS.find((t) => t.slug === slug) ?? null;
+    try {
+      const raw = await apiFetch<Record<string, unknown>>(`/research-topics/${slug}`);
+      return mapTopic(raw);
+    } catch (err) {
+      if (err && typeof err === "object" && "status" in err && (err as { status: number }).status === 404) {
+        return null;
+      }
+      throw err;
+    }
   },
 };

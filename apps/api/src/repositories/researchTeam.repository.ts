@@ -16,6 +16,7 @@ export class ResearchTeamRepository {
       include: {
         pi: { select: SAFE_USER_SELECT },
         researchTeamTopics: { include: { researchTopic: true } },
+        _count: { select: { memberships: true } },
       },
     });
   }

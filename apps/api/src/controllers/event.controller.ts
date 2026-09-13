@@ -9,7 +9,7 @@ export async function list(req: Request, res: Response, next: NextFunction): Pro
     res
       .status(200)
       .json(await eventService.list({ cursor, limit, eventType, upcoming: upcoming === "true" }));
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -17,7 +17,7 @@ export async function list(req: Request, res: Response, next: NextFunction): Pro
 export async function getById(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     res.status(200).json(await eventService.getById(req.params.id as string));
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -26,7 +26,7 @@ export async function create(req: Request, res: Response, next: NextFunction): P
   try {
     const result = await eventService.create(req.user!.id, req.body as CreateEventRequest);
     res.status(201).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -39,7 +39,7 @@ export async function update(req: Request, res: Response, next: NextFunction): P
       req.body as UpdateEventRequest,
     );
     res.status(200).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -48,7 +48,7 @@ export async function remove(req: Request, res: Response, next: NextFunction): P
   try {
     await eventService.remove(req.user!.id, req.params.id as string);
     res.status(204).send();
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -57,7 +57,7 @@ export async function register(req: Request, res: Response, next: NextFunction):
   try {
     const result = await eventService.register(req.user!.id, req.params.id as string);
     res.status(201).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }

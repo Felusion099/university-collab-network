@@ -13,7 +13,7 @@ export async function create(req: Request, res: Response, next: NextFunction): P
       req.body as CreateConversationRequest,
     );
     res.status(201).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -22,7 +22,7 @@ export async function list(req: Request, res: Response, next: NextFunction): Pro
   try {
     const { cursor, limit } = req.query as unknown as PaginationQuery;
     res.status(200).json(await conversationService.list(req.user!.id, cursor, limit));
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -30,7 +30,7 @@ export async function list(req: Request, res: Response, next: NextFunction): Pro
 export async function getById(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     res.status(200).json(await conversationService.getById(req.user!.id, req.params.id as string));
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -48,7 +48,7 @@ export async function listMessages(req: Request, res: Response, next: NextFuncti
           limit,
         ),
       );
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -61,7 +61,7 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
       req.body as CreateMessageRequest,
     );
     res.status(201).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }

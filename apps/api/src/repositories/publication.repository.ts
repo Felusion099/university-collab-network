@@ -3,10 +3,13 @@ import { SAFE_USER_SELECT } from "../utils/prismaSelects.js";
 import type { Prisma } from "@prisma/client";
 
 export class PublicationRepository {
-  async list(params: { skip: number; take: number; topic?: string }) {
+  async list(params: { skip: number; take: number; topic?: string; authorId?: string }) {
     const where: Prisma.PublicationWhereInput = {};
     if (params.topic) {
       where.topics = { some: { researchTopic: { slug: params.topic } } };
+    }
+    if (params.authorId) {
+      where.authors = { some: { userId: params.authorId } };
     }
     return prisma.publication.findMany({
       where,

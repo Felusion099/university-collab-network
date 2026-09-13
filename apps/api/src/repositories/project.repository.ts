@@ -10,9 +10,11 @@ export class ProjectRepository {
     skill?: string;
     topic?: string;
     lookingFor?: string;
+    createdBy?: string;
   }) {
     const where: Prisma.ProjectWhereInput = {};
     if (params.status) where.status = params.status as Prisma.EnumProjectStatusFilter["equals"];
+    if (params.createdBy) where.createdBy = params.createdBy;
     if (params.skill) {
       where.skillsNeeded = { some: { skill: { name: params.skill } } };
     }

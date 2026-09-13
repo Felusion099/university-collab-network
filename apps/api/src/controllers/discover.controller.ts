@@ -5,7 +5,7 @@ export async function discover(req: Request, res: Response, next: NextFunction):
   try {
     const limit = req.query.limit ? Number(req.query.limit) : 5;
     res.status(200).json(await discoverService.discover(req.user!.id, limit));
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }

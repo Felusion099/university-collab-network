@@ -15,7 +15,7 @@ export async function listVerifications(
     const { cursor, limit } = req.query as unknown as PaginationQuery;
     const { status } = req.query as Record<string, string | undefined>;
     res.status(200).json(await adminService.listVerifications(cursor, limit, status));
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -32,7 +32,7 @@ export async function updateVerification(
       req.body as UpdateVerificationRequest,
     );
     res.status(200).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -42,7 +42,7 @@ export async function listReports(req: Request, res: Response, next: NextFunctio
     const { cursor, limit } = req.query as unknown as PaginationQuery;
     const { status } = req.query as Record<string, string | undefined>;
     res.status(200).json(await adminService.listReports(cursor, limit, status));
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -55,7 +55,7 @@ export async function updateReport(req: Request, res: Response, next: NextFuncti
       req.body as UpdateReportRequest,
     );
     res.status(200).json(result);
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }
@@ -63,7 +63,7 @@ export async function updateReport(req: Request, res: Response, next: NextFuncti
 export async function getMetrics(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     res.status(200).json(await adminService.getMetrics());
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }

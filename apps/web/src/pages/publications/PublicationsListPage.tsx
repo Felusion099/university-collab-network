@@ -33,7 +33,6 @@ export default function PublicationsListPage(): JSX.Element {
       {isLoading && (
         <div className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            // eslint-disable-next-line react/no-array-index-key -- static skeleton count, never reordered
             <div key={i} className="space-y-2 rounded-lg border border-border bg-raised p-4">
               <Skeleton className="h-4 w-3/4" />
               <Skeleton className="h-3 w-1/2" />

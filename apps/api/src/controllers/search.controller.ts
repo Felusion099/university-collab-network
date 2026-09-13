@@ -6,7 +6,7 @@ export async function search(req: Request, res: Response, next: NextFunction): P
   try {
     const { q, types, limit } = req.query as unknown as SearchQuery;
     res.status(200).json(await searchService.search(q, types, limit));
-  } catch (err) {
+  } catch (err: unknown) {
     next(err);
   }
 }

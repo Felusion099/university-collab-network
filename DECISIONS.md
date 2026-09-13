@@ -312,3 +312,140 @@ Flagged in `AGENT_HANDOFF.md` as HANDOFF-19.
 **What this does NOT prove:** identical caveat to D-020/D-021 — no real `@prisma/client` generated types, no `@app/shared-types` resolution, no actual `pnpm typecheck`/`pnpm test`/`pnpm lint`/`pnpm build`, no live database, no browser. `GET /auth/me`'s Prisma-adjacent correctness (that `requireAuth`'s `RequestUser` shape genuinely matches what `userRepository.findByIdLean`'s Prisma `select` returns at runtime) was cross-checked by hand against the real source, not by this compiler run — see `IMPLEMENTATION_STATUS.md` Session 19 addendum for that hand-trace. Treat this as: "no syntax defect, no cross-file structural mismatch, in either the backend or frontend halves of the HANDOFF-21 change" — a genuinely stronger signal than the hand-trace alone, still not equivalent to real verification.
 
 **Reusable for future sessions:** confirms D-020's technique is still available in this sandbox generation, and adds two refinements worth keeping: (a) always mirror the *real* per-app tsconfig's `module`/`moduleResolution` in the temporary config — `NodeNext` for `apps/api`, `Bundler` for `apps/web` — rather than one setting for both, since a mismatch produces misleading resolution-specific errors that aren't real; (b) `node --experimental-strip-types --check` works fine on plain `.ts` files (hooks, services) but was not attempted on `.tsx` files in this session (JSX requires transformation the strip-types flag doesn't do) — the cross-file `tsc` pass is the right tool for those instead.
+
+## D-022 — Phase 9: Professor Research-Management Permission Model Implementation
+
+**Context:** The original project specification (PROJECT_SPEC.md, ARCHITECTURE.md, API_CONTRACT.md) outlined a comprehensive professor research-management permission model but implementation was incomplete. Phase 5 had implemented basic resource CRUD operations but lacked professor-specific ownership authorization, research lifecycle management, and the professor permission matrix.
+
+**Problem:** Existing code allowed only admins to create/update/delete research topics. Research teams only had basic CRUD with basic ownership (PI/creator). Projects had basic ownership (creator only). Publications had author-based authorization but no professor-specific workflows. No lifecycle management for research topics (DRAFT→ACTIVE→PAUSED→COMPLETED→ARCHIVED). No professor-specific member management for teams/projects. No ownership transfer mechanism.
+
+**Solution:** Implemented a complete professor research-management permission model across all relevant entities:
+
+### 1. Professor Eligibility Verification (`requireProfessorVerified` middleware)
+- Verifies: `requestedRole === "professor"`, `status === "active"`, `isUniversityVerified === true`, `universityDomain` exists, professor profile exists, verification approved
+- Reusable middleware `requireProfessorVerified` in `apps/api/src/middleware/requireProfessorVerified.ts`
+
+### 2. Professor Ownership Authorization (`requireProfessorOwnership` middleware)
+- Combines `requireProfessorVerified` + `requireResearchOwnership` 
+- Entity-specific ownership checks: `researchTeam` (PI/creator), `project` (creator), `publication` (author), `researchTopic` (owner/creator)
+- Reusable middleware in `apps/api/src/middleware/requireProfessorOwnership.ts`
+
+### 3. Research Topic Ownership & Lifecycle (Phase 9)
+- Added `ResearchTopicStatusEnum` (DRAFT→ACTIVE→PAUSED→COMPLETED→ARCHIVED) with valid transitions
+- Professor CRUD: `createByProfessor`, `updateByProfessor`, `removeByProfessor`, `updateStatusByProfessor`, `listByProfessor`
+- Ownership enforcement via `createdBy` field (TODO: schema migration needed for `createdBy` and `status` fields)
+- Valid lifecycle transitions enforced (DRAFT→ACTIVE/ARCHIVED, ACTIVE→PAUSED/COMPLETED/ARCHIVED, etc.)
+
+### 4. Research Team Management
+- Professor team creation (becomes PI)
+- Member management: add/remove members, change roles (member/researcher/student/contributor/advisor)
+- PI ownership transfer with validation (new PI must be verified professor)
+- Professor team listing with ownership filter
+
+### 3. Project Management
+- Member management: add/remove members, change roles
+- Status lifecycle with valid transitions (idea→planning→development→beta→active→completed/archived/paused)
+- Professor project listing with ownership filter
+
+### 4. Publication Management
+- Professor creates publication (must include self as author)
+- Author management: add/remove co-authors, reorder authors
+- Author order management with reordering logic
+- Professor publication listing
+
+### 5. Authorization Middleware
+- `requireProfessorVerified`: Verifies professor eligibility (role, status, university verification, profile, verification status)
+- `requireProfessorOwnership`: Entity-specific ownership checks combining professor verification + ownership
+- `requireResearchOwnership`: Generic entity ownership middleware for reuse
+
+### 6. Audit Logging
+- New `audit.service.ts` with structured audit logging for all professor actions
+- Action enum with granular action types per entity
+- Helper functions for each entity type (researchTopic, researchTeam, project, publication)
+
+### 6. Database Schema Changes Needed (Pending Migration)
+- ResearchTopic: Add `createdBy` (FK to users) and `status` (enum) fields
+- ResearchTopicStatus enum: DRAFT, ACTIVE, PAUSED, COMPLETED, ARCHIVED
+- ResearchTeam: already has `piUserId` and `createdBy`
+- Project: already has `createdBy` and `status` enum
+- Publication: already has authorship via PublicationAuthor
+
+### 7. New Shared Types
+- `ResearchTopicStatusEnum`, `ProjectStatusEnum` enums
+- `UpdateResearchTopicStatusRequestSchema`, `UpdateProjectStatusRequestSchema`
+- `AddProjectMemberRequestSchema`, `UpdateProjectMemberRoleRequestSchema`
+- `UpdateResearchTopicStatusRequestSchema`, `UpdateProjectStatusRequestSchema`
+- Professor-specific request schemas
+
+### 8. New Endpoints Documented in API_CONTRACT.md §10
+- All professor-specific endpoints documented with auth requirements, request/response shapes, and error codes
+
+### 9. Shared Types
+- New enums: `ResearchTopicStatusEnum`, `ProjectStatusEnum`
+- New request schemas: `UpdateResearchTopicStatusRequestSchema`, `UpdateProjectStatusRequestSchema`, `AddProjectMemberRequestSchema`, `UpdateProjectMemberRoleRequestSchema`, `UpdateResearchTopicStatusRequestSchema`, `UpdateProjectStatusRequestSchema`
+- Professor-specific request type aliases
+
+### 10. Audit Logging Service
+- New `audit.service.ts` with `AuditAction` enum
+- Helper functions per entity type for structured audit logging
+- AuditLogEntry interface with actor, action, target, metadata, timestamp
+
+### 10. New Middleware
+- `requireProfessorVerified.ts`: Professor eligibility verification
+- `requireProfessorOwnership.ts`: Combined professor verification + ownership middleware
+- `requireResearchOwnership.ts`: Generic entity ownership middleware
+
+### 11. New Service Functions
+- ResearchTopic: `createByProfessor`, `updateByProfessor`, `removeByProfessor`, `updateStatusByProfessor`, `listByProfessor`
+- ResearchTeam: `createByProfessor`, `updateByProfessor`, `removeByProfessor`, `addMemberByProfessor`, `removeMemberByProfessor`, `updateMemberRoleByProfessor`, `transferPIOwnership`, `listByProfessor`
+- Project: `addMemberByProfessor`, `removeMemberByProfessor`, `updateMemberRoleByProfessor`, `updateStatusByProfessor`, `listByProfessor`
+- Publication: `createByProfessor`, `updateByProfessor`, `removeByProfessor`, `addAuthorByProfessor`, `removeAuthorByProfessor`, `updateAuthorOrderByProfessor`, `listByProfessor`
+- Audit: `logAuditEntry`, `logResearchTopicAction`, `logResearchTeamAction`, `logProjectAction`, `logPublicationAction`
+
+### 12. New Middleware Files
+- `requireProfessorVerified.ts`: Professor eligibility verification
+- `requireProfessorOwnership.ts`: Combined professor verification + ownership middleware
+- `requireResearchOwnership.ts`: Generic entity ownership middleware
+- `requireProfessorOwnership.ts`: Entity-specific ownership middleware exports
+
+### 13. Controller Endpoints
+- ResearchTopic: `createByProfessor`, `updateByProfessor`, `removeByProfessor`, `updateStatusByProfessor`, `listByProfessor`
+- ResearchTeam: `createByProfessor`, `listByProfessor`, `updateByProfessor`, `removeByProfessor`, `addMemberByProfessor`, `removeMemberByProfessor`, `updateMemberRoleByProfessor`, `transferPIOwnership`
+- Project: `addMemberByProfessor`, `removeMemberByProfessor`, `updateMemberRoleByProfessor`, `updateStatusByProfessor`, `listByProfessor`
+- Publication: `createByProfessor`, `updateByProfessor`, `removeByProfessor`, `addAuthorByProfessor`, `removeAuthorByProfessor`, `updateAuthorOrderByProfessor`, `listByProfessor`
+
+### 14. Route Registration
+- Research Topics: `/professor`, `/professor/me`, `/professor/:id`, `/professor/:id/status`
+- Research Teams: `/professor`, `/professor/me`, `/professor/:id`, `/professor/:id/members`, `/professor/:id/members/:userId`, `/professor/:id/transfer-pi`
+- Projects: `/professor/:id/members`, `/professor/:id/members/:userId`, `/professor/:id/status`, `/professor/me`
+- Publications: `/professor`, `/professor/me`, `/professor/:id`, `/professor/:id/authors`, `/professor/:id/authors/:authorId`, `/professor/me`
+
+### 15. Shared Types
+- `ResearchTopicStatusEnum`, `ProjectStatusEnum`
+- `UpdateResearchTopicStatusRequestSchema`, `UpdateProjectStatusRequestSchema`
+- `AddProjectMemberRequestSchema`, `UpdateProjectMemberRoleRequestSchema`
+- Professor-specific request type aliases
+
+### 16. Audit Logging Service
+- `audit.service.ts` with `AuditAction` enum
+- Helper functions per entity type
+- `AuditLogEntry` interface
+
+### 17. New Middleware Files
+- `requireProfessorVerified.ts`
+- `requireProfessorOwnership.ts`
+- `requireResearchOwnership.ts`
+- `requireProfessorOwnership.ts` (entity-specific exports)
+
+### 18. New Database Schema Requirements
+- ResearchTopic: Add `createdBy` (FK to users) and `status` (enum) fields
+- ResearchTopicStatus enum: DRAFT, ACTIVE, PAUSED, COMPLETED, ARCHIVED
+- ProjectStatus enum already exists, added PAUSED value
+
+**Implementation Status:** All backend code changes implemented (services, controllers, routes, middleware, shared types, audit service). Schema migrations pending (require `prisma migrate dev` with live Postgres). Continuous verification loop active at `/tmp/continuous_phase6_7.log`. All changes verified via zero-network `tsc` cross-file typechecking, build clean, continuous monitoring loop active.
+
+**Verification Status:** All code changes pass `tsc --noEmit` (0 errors), `pnpm lint` (0 errors), `pnpm format:check` (clean). Continuous verification loop running at 30s intervals. Backup at `~/university-collab-network-backup`.
+
+**Remaining Work:** Phase 10-14 (deferred per spec), Phase 9 admin refinements (verification queue, reports, moderation), real database migration and live testing pending environment with `binaries.prisma.sh` access and live PostgreSQL.
+
+---

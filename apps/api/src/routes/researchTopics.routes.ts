@@ -2,11 +2,13 @@ import { Router } from "express";
 import {
   CreateResearchTopicRequestSchema,
   UpdateResearchTopicRequestSchema,
+  UpdateResearchTopicStatusRequestSchema,
   PaginationQuerySchema,
 } from "@app/shared-types";
 import { validateBody, validateQuery } from "../validators/validate.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { optionalAuth } from "../middleware/optionalAuth.js";
+import { requireProfessorVerified, requireProfessorOwnership } from "../middleware/requireProfessorOwnership.js";
 import * as controller from "../controllers/researchTopic.controller.js";
 
 const router = Router();
@@ -26,5 +28,60 @@ router.patch(
   controller.update,
 );
 router.delete("/:id", requireAuth, controller.remove);
+
+// ============================================================================
+// PROFESSOR RESEARCH TOPIC ENDPOINTS (Phase 9+)
+// ============================================================================
+// Professor creates a new research topic (requires verified professor)
+router.post(
+  "/professor",
+  requireAuth,
+  requireProfessorVerified,
+  validateBody(CreateResearchTopicRequestSchema),
+  controller.createByProfessor
+);
+
+// Professor lists their own research topics
+router.get(
+  "/professor/me",
+  requireAuth,
+  requireProfessorVerified,
+  validateQuery(PaginationQuerySchema),
+  controller.listByProfessor
+);
+
+// Professor gets their own research topic by ID
+router.get(
+  "/professor/:id",
+  requireAuth,
+  requireProfessorOwnership('researchTopic', 'id'),
+  controller.getBySlug
+);
+
+// Professor updates their own research topic
+router.patch(
+  "/professor/:id",
+  requireAuth,
+  requireProfessorOwnership('researchTopic', 'id'),
+  validateBody(UpdateResearchTopicRequestSchema),
+  controller.updateByProfessor
+);
+
+// Professor deletes/archives their own research topic
+router.delete(
+  "/professor/:id",
+  requireAuth,
+  requireProfessorOwnership('researchTopic', 'id'),
+  controller.removeByProfessor
+);
+
+// Professor updates their own research topic lifecycle status
+router.patch(
+  "/professor/:id/status",
+  requireAuth,
+  requireProfessorOwnership('researchTopic', 'id'),
+  validateBody(UpdateResearchTopicStatusRequestSchema),
+  controller.updateStatusByProfessor
+);
 
 export { router as researchTopicsRouter };

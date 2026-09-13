@@ -77,10 +77,28 @@ export function DirectoryDetail({ role }: { role: UserRole }): JSX.Element {
                 Skills
               </h2>
               <div className="flex flex-wrap gap-1.5">
-                {user.topSkills.map((skill) => (
+                {user.topSkills.map((skill: string) => (
                   <SkillBadge key={skill} skill={skill} />
                 ))}
               </div>
+            </div>
+          )}
+
+          {user.department && (
+            <p className="text-xs text-text-muted">{user.department}</p>
+          )}
+
+          {user.bio && (
+            <div>
+              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-text-muted">About</h2>
+              <p className="text-sm text-text-secondary leading-relaxed">{user.bio}</p>
+            </div>
+          )}
+
+          {user.lookingFor && (
+            <div>
+              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-text-muted">What they're looking for</h2>
+              <p className="text-sm text-text-secondary leading-relaxed">{String(user.lookingFor)}</p>
             </div>
           )}
         </div>

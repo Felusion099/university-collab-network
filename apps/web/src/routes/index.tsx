@@ -7,6 +7,7 @@ import LoginPage from "@/pages/auth/LoginPage";
 import SignupPage from "@/pages/auth/SignupPage";
 import DashboardPage from "@/pages/dashboard/DashboardPage";
 import DiscoverPage from "@/pages/discover/DiscoverPage";
+import NetworkPage from "@/pages/network/NetworkPage";
 import StudentsListPage from "@/pages/students/StudentsListPage";
 import StudentDetailPage from "@/pages/students/StudentDetailPage";
 import ProfessorsListPage from "@/pages/professors/ProfessorsListPage";
@@ -61,6 +62,7 @@ export const router = createBrowserRouter([
         children: [
           { path: "/dashboard", element: <DashboardPage /> },
           { path: "/discover", element: <DiscoverPage /> },
+          { path: "/network", element: <NetworkPage /> },
           { path: "/students", element: <StudentsListPage /> },
           { path: "/students/:username", element: <StudentDetailPage /> },
           { path: "/professors", element: <ProfessorsListPage /> },
