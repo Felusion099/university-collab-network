@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { MessageSquare, Plus, X } from "lucide-react";
 import {
   useConversations,
@@ -22,7 +23,13 @@ import { formatDate, cn } from "@/lib/utils";
  */
 export default function MessagesPage(): JSX.Element {
   const { data: conversations, isLoading, isError, refetch } = useConversations();
-  const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
+  // ?c=<conversationId> — Message actions across the product navigate
+  // here and auto-open the conversation (profile, search, discover,
+  // project/team members all converge on this).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedId, setSelectedId] = useState<string | undefined>(
+    searchParams.get("c") ?? undefined,
+  );
   const { user } = useSessionStore();
   const { data: messages, isLoading: messagesLoading } = useMessages(selectedId);
   const sendMessage = useSendMessage(selectedId);
@@ -75,7 +82,10 @@ export default function MessagesPage(): JSX.Element {
               <button
                 key={c.id}
                 type="button"
-                onClick={() => setSelectedId(c.id)}
+                onClick={() => {
+                  setSelectedId(c.id);
+                  setSearchParams({ c: c.id }, { replace: true });
+                }}
                 className={cn(
                   "block w-full rounded-lg border p-3 text-left transition-colors",
                   c.id === activeId

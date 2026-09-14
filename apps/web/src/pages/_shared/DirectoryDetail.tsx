@@ -3,6 +3,8 @@ import { UserX, ArrowLeft } from "lucide-react";
 import type { UserRole } from "@app/shared-types";
 import { useDirectoryUser } from "@/hooks/useDirectory";
 import { PortfolioView } from "@/components/PortfolioView";
+import { MessageButton } from "@/components/MessageButton";
+import { useSessionStore } from "@/stores/session.store";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -27,6 +29,7 @@ const ROLE_LIST_ROUTE: Record<UserRole, string> = {
 export function DirectoryDetail({ role }: { role: UserRole }): JSX.Element {
   const { username } = useParams<{ username: string }>();
   const { data: user, isLoading, isError, refetch } = useDirectoryUser(role, username);
+  const sessionUser = useSessionStore((s) => s.user);
 
   return (
     <div className="space-y-6">
@@ -58,7 +61,14 @@ export function DirectoryDetail({ role }: { role: UserRole }): JSX.Element {
         />
       )}
 
-      {!isLoading && !isError && user && <PortfolioView user={user} />}
+      {!isLoading && !isError && user && (
+        <div className="space-y-4">
+          {sessionUser && sessionUser.id !== user.id && (
+            <MessageButton userId={user.id} username={user.username} />
+          )}
+          <PortfolioView user={user} />
+        </div>
+      )}
     </div>
   );
 }

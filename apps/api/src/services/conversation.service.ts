@@ -6,6 +6,33 @@ import { buildPaginatedResponse, toPageParams } from "../utils/pagination.js";
 import type { CreateConversationRequest, CreateMessageRequest } from "@app/shared-types";
 import { messageBus } from "./messageBus.js";
 
+/**
+ * ONE authoritative open-or-create for direct conversations: returns the
+ * existing direct conversation between the two users (findExistingDirect
+ * de-dup) or creates exactly one. Every Message entry point in the
+ * product (profile, search, discover, project/team members, notifications)
+ * routes through THIS operation — no per-context duplicates.
+ */
+export async function openOrCreateDirect(userId: string, targetUserId: string) {
+  if (userId === targetUserId) {
+    throw new BadRequestError("You cannot start a conversation with yourself");
+  }
+  const target = await prisma.user.findUnique({
+    where: { id: targetUserId },
+    select: { id: true, status: true },
+  });
+  if (!target) throw new NotFoundError("User not found");
+  if (target.status === "suspended" || target.status === "banned") {
+    throw new ForbiddenError("This user cannot receive messages");
+  }
+  const existing = await conversationRepository.findExistingDirect([userId, targetUserId]);
+  if (existing) return existing;
+  return conversationRepository.create({
+    type: "direct",
+    participantIds: [userId, targetUserId],
+  });
+}
+
 export async function create(userId: string, input: CreateConversationRequest) {
   const participantIds = Array.from(new Set([userId, ...input.participantIds]));
 

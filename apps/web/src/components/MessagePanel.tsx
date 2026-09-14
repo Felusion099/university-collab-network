@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, useRef, useEffect, type FormEvent } from "react";
 import { Send } from "lucide-react";
 import type { MessageItem } from "@/services/api/messages";
 import { cn } from "@/lib/utils";
@@ -22,6 +22,13 @@ export function MessagePanel({
 }): JSX.Element {
   const [draft, setDraft] = useState("");
   const [failed, setFailed] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Focus the composer when the panel mounts — the conversation is open
+  // and ready to type (the composer is never hidden behind another click)
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   async function handleSubmit(e: FormEvent): Promise<void> {
     e.preventDefault();
@@ -40,6 +47,14 @@ export function MessagePanel({
   return (
     <div className={cn("flex h-full flex-col", className)}>
       <div className="flex-1 space-y-3 overflow-y-auto p-1">
+        {messages.length === 0 && (
+          <div className="flex h-full flex-col items-center justify-center gap-1 text-center">
+            <p className="text-sm font-medium text-text-primary">Start the conversation</p>
+            <p className="max-w-xs text-xs text-text-muted">
+              Discuss research, collaboration, projects, or opportunities.
+            </p>
+          </div>
+        )}
         {messages.map((m) => (
           <div key={m.id} className={cn("flex", m.isMe ? "justify-end" : "justify-start")}>
             <div
@@ -75,6 +90,7 @@ export function MessagePanel({
         className="mt-3 flex gap-2"
       >
         <input
+          ref={inputRef}
           type="text"
           value={draft}
           onChange={(e) => {

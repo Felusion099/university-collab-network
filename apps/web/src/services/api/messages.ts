@@ -120,6 +120,13 @@ export const messagesApi = {
     return apiFetch<RawConversation>("/conversations", { method: "POST", body: input });
   },
 
+  openOrCreateDirect: async (input: { userId: string }): Promise<{ id: string }> => {
+    return apiFetch<{ id: string }>("/conversations/direct", {
+      method: "POST",
+      body: input,
+    });
+  },
+
   resolveUserId: async (username: string): Promise<string> => {
     const user = await apiFetch<{ id: string }>(`/users/${username}`);
     return user.id;

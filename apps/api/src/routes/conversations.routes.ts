@@ -52,6 +52,8 @@ router.get("/:id/stream", async (req, res, next) => {
   }
 });
 
+router.post("/direct", requireAuth, controller.openDirect);
+
 router.use(requireAuth);
 router.get("/", validateQuery(PaginationQuerySchema), controller.list);
 router.post("/", validateBody(CreateConversationRequestSchema), controller.create);

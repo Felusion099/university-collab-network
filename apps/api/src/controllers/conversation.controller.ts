@@ -82,3 +82,20 @@ export async function markRead(
     next(err);
   }
 }
+
+// POST /conversations/direct — the ONE open-or-create operation for direct
+// conversations (findExistingDirect de-dups; repeated clicks never create
+// duplicates). Body { "userId": uuid }.
+export async function openDirect(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { userId } = req.body as { userId: string };
+    const result = await conversationService.openOrCreateDirect(req.user!.id, userId);
+    res.status(200).json(result);
+  } catch (err: unknown) {
+    next(err);
+  }
+}

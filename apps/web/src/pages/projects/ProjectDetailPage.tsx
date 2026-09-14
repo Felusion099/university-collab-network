@@ -16,6 +16,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import type { ProjectStatus } from "@app/shared-types";
 import { useProject } from "@/hooks/useProjects";
 import { SkillBadge } from "@/components/ui/Badge";
+import { MessageButton } from "@/components/MessageButton";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -235,7 +236,7 @@ export default function ProjectDetailPage(): JSX.Element {
                           {m.username.slice(0, 2).toUpperCase()}
                         </span>
                       )}
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-text-primary">
                           {m.username}
                           {project.creator?.id === m.userId && (
@@ -248,6 +249,9 @@ export default function ProjectDetailPage(): JSX.Element {
                           <p className="text-xs text-text-muted">{m.roleOnProject}</p>
                         )}
                       </div>
+                      {user && m.userId !== user.id && (
+                        <MessageButton userId={m.userId} username={m.username} className="flex-shrink-0" />
+                      )}
                     </Link>
                   </li>
                 ))}
