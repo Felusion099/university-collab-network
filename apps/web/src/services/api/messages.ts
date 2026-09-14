@@ -7,6 +7,13 @@ export interface ConversationSummary {
   lastMessageAt: string; // ISO date
   unread: boolean; // derived from real lastReadAt vs last message
   lastMessageAtFull: string; // ISO timestamp (for unread comparison)
+  /** The other participant (direct conversations) — drives the
+   * conversation header (avatar, name, View Profile). */
+  otherParticipant: {
+    userId: string;
+    username: string;
+    role: string;
+  } | null;
 }
 
 export interface MessageItem {
@@ -35,7 +42,7 @@ interface RawConversation {
   id: string;
   type: string;
   updatedAt: string;
-  participants?: { userId: string; lastReadAt?: string | null; user: { id: string; username: string; avatarUrl?: string | null } }[];
+  participants?: { userId: string; lastReadAt?: string | null; user: { id: string; username: string; avatarUrl?: string | null; requestedRole?: string } }[];
   messages?: { id: string; body: string; sentAt: string }[];
 }
 
@@ -74,6 +81,13 @@ export const messagesApi = {
         lastMessageAt: lastSentAt.slice(0, 10),
         lastMessageAtFull: lastSentAt,
         unread,
+        otherParticipant: other
+          ? {
+              userId: other.userId,
+              username: other.user.username,
+              role: other.user.requestedRole ?? "member",
+            }
+          : null,
       };
     });
   },

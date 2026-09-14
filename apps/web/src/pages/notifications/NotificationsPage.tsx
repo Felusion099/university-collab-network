@@ -1,4 +1,5 @@
 import { Bell } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   useNotifications,
   useMarkNotificationRead,
@@ -8,12 +9,31 @@ import { NotificationPanel } from "@/components/NotificationPanel";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { apiFetch } from "@/services/api/client";
+import type { NotificationItem } from "@/services/api/notifications";
 
 /** Real /notifications page, replacing the earlier placeholder. */
 export default function NotificationsPage(): JSX.Element {
   const { data: notifications, isLoading, isError, refetch } = useNotifications();
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
+  const queryClient = useQueryClient();
+  // Actionable notifications: join requests -> Review (My Projects);
+  // invitations -> Accept/Decline (real membership on accept).
+  const action = useMutation({
+    mutationFn: async (input: { notification: NotificationItem; action: "accept" | "decline" }) => {
+      const requestId = input.notification.payload.requestId as string | undefined;
+      if (!requestId) throw new Error("Missing request reference");
+      return apiFetch(`/users/me/join-requests/${requestId}/${input.action}`, {
+        method: "PATCH",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+      queryClient.invalidateQueries({ queryKey: ["my-join-requests"] });
+    },
+  });
 
   const unreadCount = notifications?.filter((n) => !n.readAt).length ?? 0;
 
@@ -48,7 +68,14 @@ export default function NotificationsPage(): JSX.Element {
       )}
 
       {!isLoading && !isError && notifications && notifications.length > 0 && (
-        <NotificationPanel notifications={notifications} onMarkRead={(id) => markRead.mutate(id)} />
+        <NotificationPanel
+          notifications={notifications}
+          onMarkRead={(id) => markRead.mutate(id)}
+          onAction={(notification, a) => {
+            if (a === "review") return;
+            action.mutate({ notification, action: a });
+          }}
+        />
       )}
     </div>
   );

@@ -14,7 +14,8 @@ import { MessagePanel } from "@/components/MessagePanel";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { formatDate, cn } from "@/lib/utils";
+import { relativeTime, cn } from "@/lib/utils";
+import { Link } from "react-router-dom";
 
 /**
  * Real /messages page — conversations + messages from the real backend,
@@ -41,6 +42,7 @@ export default function MessagesPage(): JSX.Element {
   }, [user?.id]);
 
   const activeId = selectedId ?? conversations?.[0]?.id;
+  const activeConversation = conversations?.find((c) => c.id === activeId);
 
   return (
     <div className="space-y-6">
@@ -102,15 +104,46 @@ export default function MessagesPage(): JSX.Element {
                   >
                     {c.title}
                   </p>
-                  {c.unread && <span className="h-2 w-2 flex-shrink-0 rounded-full bg-accent-500" aria-label="Unread" />}
+                  <span className="flex flex-shrink-0 items-center gap-1.5">
+                    {c.unread && <span className="h-2 w-2 rounded-full bg-accent-500" aria-label="Unread" />}
+                    <span className="text-xs text-text-muted">{relativeTime(c.lastMessageAtFull)}</span>
+                  </span>
                 </div>
                 <p className="truncate text-xs text-text-secondary">{c.lastMessagePreview}</p>
-                <p className="mt-0.5 text-xs text-text-muted">{formatDate(c.lastMessageAt)}</p>
               </button>
             ))}
           </div>
 
-          <div className="rounded-lg border border-border bg-raised p-3 md:col-span-2">
+          <div className="flex flex-col rounded-lg border border-border bg-raised md:col-span-2 md:h-[34rem]">
+            {/* CONVERSATION HEADER — who am I talking to */}
+            {activeConversation && (
+              <div className="flex items-center justify-between gap-3 border-b border-border p-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-sunken text-sm font-semibold text-text-secondary">
+                    {activeConversation.title.slice(0, 2).toUpperCase()}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-text-primary">
+                      {activeConversation.title}
+                    </p>
+                    {activeConversation.otherParticipant && (
+                      <p className="truncate text-xs capitalize text-text-muted">
+                        {activeConversation.otherParticipant.role.replace("_", " ")}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {activeConversation.otherParticipant && (
+                  <Link
+                    to={`/students/${activeConversation.otherParticipant.username}`}
+                    className="flex-shrink-0 text-xs text-accent-600 hover:text-accent-700"
+                  >
+                    View Profile
+                  </Link>
+                )}
+              </div>
+            )}
+            <div className="min-h-0 flex-1 p-3">
             {messagesLoading && <Skeleton className="h-full w-full" />}
             {!messagesLoading && messages && (
               <MessagePanel
@@ -130,6 +163,7 @@ export default function MessagesPage(): JSX.Element {
                 className="h-full"
               />
             )}
+            </div>
           </div>
         </div>
       )}

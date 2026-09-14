@@ -1,3 +1,4 @@
+import { prisma } from "../repositories/prisma.js";
 import { notificationRepository } from "../repositories/notification.repository.js";
 import { NotFoundError, ForbiddenError } from "../utils/errors.js";
 import { buildPaginatedResponse, toPageParams } from "../utils/pagination.js";
@@ -20,6 +21,15 @@ export async function markRead(userId: string, id: string) {
   if (notification.userId !== userId)
     throw new ForbiddenError("This notification does not belong to you");
   return notificationRepository.markRead(id);
+}
+
+/** Marks every unread notification for the user read (real DB state). */
+export async function markAllRead(userId: string) {
+  await prisma.notification.updateMany({
+    where: { userId, readAt: null },
+    data: { readAt: new Date() },
+  });
+  return { read: true };
 }
 
 export async function getPreferences(userId: string) {

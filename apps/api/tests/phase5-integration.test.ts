@@ -964,7 +964,10 @@ describe("Phase 5 - Complete API Endpoints Integration Test Suite", () => {
       const reportJson = (await resAct.json()) as { status: string; action: string };
 
       // D-019 regression: GET /admin/reports embeds reporter (SAFE_USER_SELECT_ADMIN)
-      const resReportsList = await fetch(`${baseUrl}/api/v1/admin/reports`, {
+      // limit=100: the shared dev DB accumulates reports across runs —
+      // the default page (20) can slice this test's report off, which is
+      // a test-data artifact, not a regression.
+      const resReportsList = await fetch(`${baseUrl}/api/v1/admin/reports?limit=100`, {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
       assert.equal(resReportsList.status, 200);

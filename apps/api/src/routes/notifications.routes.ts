@@ -12,6 +12,7 @@ const router = Router();
 router.use(requireAuth);
 router.get("/", validateQuery(PaginationQuerySchema), controller.list);
 router.patch("/:id/read", controller.markRead);
+router.patch("/read-all", controller.markAllRead);
 router.get("/preferences", controller.getPreferences);
 router.patch(
   "/preferences",

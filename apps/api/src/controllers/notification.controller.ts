@@ -50,3 +50,16 @@ export async function updatePreferences(
     next(err);
   }
 }
+
+export async function markAllRead(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await notificationService.markAllRead(req.user!.id);
+    res.status(200).json(result);
+  } catch (err: unknown) {
+    next(err);
+  }
+}
