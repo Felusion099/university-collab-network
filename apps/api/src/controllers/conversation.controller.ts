@@ -65,3 +65,20 @@ export async function sendMessage(req: Request, res: Response, next: NextFunctio
     next(err);
   }
 }
+
+
+export async function markRead(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const result = await conversationService.markConversationRead(
+      req.user!.id,
+      req.params.id as string,
+    );
+    res.status(200).json(result);
+  } catch (err: unknown) {
+    next(err);
+  }
+}

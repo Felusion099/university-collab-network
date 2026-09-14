@@ -639,6 +639,9 @@ model Conversation {
 model ConversationParticipant {
   conversationId String       @map("conversation_id") @db.Uuid
   userId         String       @map("user_id") @db.Uuid
+  /// Real unread state — set to now() when the participant opens the
+  /// conversation; a message is unread if sentAt > lastReadAt.
+  lastReadAt     DateTime?    @map("last_read_at")
   isSeed         Boolean      @default(false) @map("is_seed")
   createdAt      DateTime     @default(now()) @map("created_at")
   updatedAt      DateTime     @updatedAt @map("updated_at")

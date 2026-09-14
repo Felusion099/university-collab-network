@@ -5,7 +5,8 @@ export interface ConversationSummary {
   title: string;
   lastMessagePreview: string;
   lastMessageAt: string; // ISO date
-  unread: boolean;
+  unread: boolean; // derived from real lastReadAt vs last message
+  lastMessageAtFull: string; // ISO timestamp (for unread comparison)
 }
 
 export interface MessageItem {
@@ -34,7 +35,7 @@ interface RawConversation {
   id: string;
   type: string;
   updatedAt: string;
-  participants?: { userId: string; user: { id: string; username: string; avatarUrl?: string | null } }[];
+  participants?: { userId: string; lastReadAt?: string | null; user: { id: string; username: string; avatarUrl?: string | null } }[];
   messages?: { id: string; body: string; sentAt: string }[];
 }
 
@@ -49,18 +50,36 @@ interface RawMessage {
 
 export const messagesApi = {
   listConversations: async (): Promise<ConversationSummary[]> => {
-    const raw = await apiFetch<{ data?: RawConversation[] }>("/conversations?limit=50");
+    const raw = await apiFetch<{
+      data?: (RawConversation & {
+        participants2?: { lastReadAt?: string | null }[];
+      })[];
+    }>("/conversations?limit=50");
     return (raw.data ?? []).map((c) => {
       const other = (c.participants ?? []).find((p) => p.userId !== currentUserId);
+      const mine = (c.participants ?? []).find((p) => p.userId === currentUserId);
       const last = (c.messages ?? [])[0];
+      const lastSentAt = last?.sentAt ?? c.updatedAt;
+      // Real unread: last message is newer than my lastReadAt, and it
+      // wasn't sent by me.
+      const unread =
+        currentUserId !== null &&
+        Boolean(last) &&
+        (last as { senderId?: string }).senderId !== currentUserId &&
+        (!mine?.lastReadAt || new Date(lastSentAt) > new Date(mine.lastReadAt));
       return {
         id: c.id,
         title: other?.user.username ?? "Conversation",
         lastMessagePreview: last?.body ?? "",
-        lastMessageAt: (last?.sentAt ?? c.updatedAt).slice(0, 10),
-        unread: false,
+        lastMessageAt: lastSentAt.slice(0, 10),
+        lastMessageAtFull: lastSentAt,
+        unread,
       };
     });
+  },
+
+  markRead: async (conversationId: string): Promise<void> => {
+    await apiFetch(`/conversations/${conversationId}/read`, { method: "POST" });
   },
 
   listMessages: async (conversationId: string): Promise<MessageItem[]> => {

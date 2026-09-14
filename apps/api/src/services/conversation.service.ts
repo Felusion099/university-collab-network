@@ -1,3 +1,4 @@
+import { prisma } from "../repositories/prisma.js";
 import { conversationRepository } from "../repositories/conversation.repository.js";
 import { notificationRepository } from "../repositories/notification.repository.js";
 import { NotFoundError, ForbiddenError, BadRequestError } from "../utils/errors.js";
@@ -31,6 +32,12 @@ export async function list(userId: string, cursor: string | undefined, limit: nu
   return buildPaginatedResponse(items, skip, take);
 }
 
+export async function listForUserWithUnread(userId: string, cursor: string | undefined, limit: number) {
+  const { skip, take } = toPageParams(cursor, limit);
+  const items = await conversationRepository.listForUserWithUnread(userId, { skip, take });
+  return buildPaginatedResponse(items, skip, take);
+}
+
 async function assertParticipant(conversationId: string, userId: string) {
   const isParticipant = await conversationRepository.isParticipant(conversationId, userId);
   if (!isParticipant) throw new ForbiddenError("You are not a participant in this conversation");
@@ -38,6 +45,19 @@ async function assertParticipant(conversationId: string, userId: string) {
 
 export async function assertParticipantForStream(conversationId: string, userId: string) {
   await assertParticipant(conversationId, userId);
+}
+
+/**
+ * Real unread state — opening the conversation updates the participant's
+ * lastReadAt (database-authoritative; refreshing preserves it).
+ */
+export async function markConversationRead(conversationId: string, userId: string) {
+  await assertParticipant(conversationId, userId);
+  await prisma.conversationParticipant.update({
+    where: { conversationId_userId: { conversationId, userId } },
+    data: { lastReadAt: new Date() },
+  });
+  return { read: true };
 }
 
 export async function getById(userId: string, id: string) {

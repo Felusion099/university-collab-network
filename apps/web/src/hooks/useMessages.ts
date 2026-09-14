@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { messagesApi, type MessageItem } from "@/services/api/messages";
+import { useSessionStore } from "@/stores/session.store";
 
 export function useConversations() {
   return useQuery({
@@ -12,8 +13,14 @@ export function useConversations() {
 export function useMessages(conversationId: string | undefined) {
   return useQuery({
     queryKey: ["messages", conversationId],
-    queryFn: () => messagesApi.listMessages(conversationId!),
+    queryFn: async () => {
+      const messages = await messagesApi.listMessages(conversationId!);
+      // Opening the conversation marks it read (database-authoritative)
+      await messagesApi.markRead(conversationId!);
+      return messages;
+    },
     enabled: Boolean(conversationId),
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -24,12 +31,26 @@ export function useMessages(conversationId: string | undefined) {
  */
 export function useMessageStream(conversationId: string | undefined) {
   const queryClient = useQueryClient();
+  const [connected, setConnected] = useState(false);
+
   useEffect(() => {
     if (!conversationId) return;
+    const accessToken = useSessionStore.getState().accessToken;
+    if (!accessToken) return;
+
+    // EventSource cannot send Authorization headers — the token travels
+    // via ?token= and is validated server-side with the same verification
+    // requireAuth uses. Sender identity is never trusted from the client.
     const source = new EventSource(
-      `${import.meta.env.VITE_API_BASE_URL}/conversations/${conversationId}/stream`,
-      { withCredentials: true },
+      `${import.meta.env.VITE_API_BASE_URL}/conversations/${conversationId}/stream?token=${encodeURIComponent(accessToken)}`,
     );
+
+    source.onopen = () => {
+      setConnected(true);
+      // Reconnected — refetch to catch anything missed while offline
+      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+    };
     source.onmessage = (event) => {
       const message = JSON.parse(event.data) as MessageItem;
       queryClient.setQueryData<MessageItem[]>(["messages", conversationId], (prev) =>
@@ -37,8 +58,16 @@ export function useMessageStream(conversationId: string | undefined) {
       );
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
     };
-    return () => source.close();
+    // EventSource auto-reconnects natively; surface the state
+    source.onerror = () => setConnected(false);
+
+    return () => {
+      source.close();
+      setConnected(false);
+    };
   }, [conversationId, queryClient]);
+
+  return connected;
 }
 
 export function useSendMessage(conversationId: string | undefined) {

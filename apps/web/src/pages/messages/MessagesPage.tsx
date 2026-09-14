@@ -26,7 +26,7 @@ export default function MessagesPage(): JSX.Element {
   const { user } = useSessionStore();
   const { data: messages, isLoading: messagesLoading } = useMessages(selectedId);
   const sendMessage = useSendMessage(selectedId);
-  useMessageStream(selectedId);
+  const connected = useMessageStream(selectedId);
 
   // The backend derives isMe from senderId vs the session user
   useEffect(() => {
@@ -38,7 +38,16 @@ export default function MessagesPage(): JSX.Element {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-text-primary">Messages</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold text-text-primary">Messages</h1>
+          {/* Reconnect behavior — a real state, never a fake "delivered" */}
+          {!connected && activeId && (
+            <span className="flex items-center gap-1.5 rounded-full bg-warning-100 px-2.5 py-0.5 text-xs font-medium text-warning-600">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-warning-600" />
+              Reconnecting…
+            </span>
+          )}
+        </div>
         <NewMessageButton onCreated={(id) => setSelectedId(id)} refetch={refetch} />
       </div>
 
@@ -74,7 +83,17 @@ export default function MessagesPage(): JSX.Element {
                     : "border-border bg-raised hover:bg-sunken",
                 )}
               >
-                <p className="truncate text-sm font-medium text-text-primary">{c.title}</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p
+                    className={cn(
+                      "truncate text-sm",
+                      c.unread ? "font-semibold text-text-primary" : "font-medium text-text-primary",
+                    )}
+                  >
+                    {c.title}
+                  </p>
+                  {c.unread && <span className="h-2 w-2 flex-shrink-0 rounded-full bg-accent-500" aria-label="Unread" />}
+                </div>
                 <p className="truncate text-xs text-text-secondary">{c.lastMessagePreview}</p>
                 <p className="mt-0.5 text-xs text-text-muted">{formatDate(c.lastMessageAt)}</p>
               </button>
@@ -86,7 +105,17 @@ export default function MessagesPage(): JSX.Element {
             {!messagesLoading && messages && (
               <MessagePanel
                 messages={messages}
-                onSend={(body) => sendMessage.mutate(body)}
+                onSend={async (body) => {
+                  // No fake "Sent" — the message is only confirmed after
+                  // the backend accepts it; failure preserves the draft
+                  // for retry.
+                  try {
+                    await sendMessage.mutateAsync(body);
+                    return true;
+                  } catch {
+                    return false;
+                  }
+                }}
                 sending={sendMessage.isPending}
                 className="h-full"
               />

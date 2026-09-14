@@ -4,11 +4,10 @@ import type { MessageItem } from "@/services/api/messages";
 import { cn } from "@/lib/utils";
 
 /**
- * MessagePanel — ARCHITECTURE.md §5. A single conversation's thread +
- * composer. Real messaging is very likely WebSocket/polling-based per
- * ARCHITECTURE.md, not plain request/response — this mock only covers
- * the request/response shape (list + send), same limitation noted in
- * services/api/messages.ts.
+ * MessagePanel — a conversation thread + composer. Delivery is honest:
+ * the draft is only cleared after the backend accepts the message; a
+ * failure preserves the draft and shows a Failed state with retry —
+ * never a fake "Sent".
  */
 export function MessagePanel({
   messages,
@@ -17,18 +16,25 @@ export function MessagePanel({
   className,
 }: {
   messages: MessageItem[];
-  onSend: (body: string) => void;
+  onSend: (body: string) => Promise<boolean>;
   sending?: boolean;
   className?: string;
 }): JSX.Element {
   const [draft, setDraft] = useState("");
+  const [failed, setFailed] = useState(false);
 
-  function handleSubmit(e: FormEvent): void {
+  async function handleSubmit(e: FormEvent): Promise<void> {
     e.preventDefault();
     const trimmed = draft.trim();
-    if (!trimmed) return;
-    onSend(trimmed);
-    setDraft("");
+    if (!trimmed || sending) return;
+    const accepted = await onSend(trimmed);
+    // Draft preserved on failure so the user can retry without retyping
+    if (accepted) {
+      setDraft("");
+      setFailed(false);
+    } else {
+      setFailed(true);
+    }
   }
 
   return (
@@ -51,11 +57,30 @@ export function MessagePanel({
         ))}
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-3 flex gap-2">
+      {failed && (
+        <div className="mt-2 flex items-center justify-between rounded-md bg-danger-100 px-3 py-2 text-xs text-danger-600">
+          <span>Message couldn't be sent.</span>
+          <button
+            type="button"
+            onClick={() => void handleSubmit({ preventDefault: () => {} } as FormEvent)}
+            className="font-medium underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      <form
+        onSubmit={(e) => void handleSubmit(e)}
+        className="mt-3 flex gap-2"
+      >
         <input
           type="text"
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            if (failed) setFailed(false);
+          }}
           placeholder="Write a message..."
           aria-label="Message"
           className="flex-1 rounded-md border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]"

@@ -52,6 +52,27 @@ export class ConversationRepository {
     });
   }
 
+  /**
+   * Unread computation — the caller's own lastReadAt is included so the
+   * frontend can derive "unread" (last message sentAt > my lastReadAt)
+   * from real database state. No separate fake unread flag.
+   */
+  async listForUserWithUnread(userId: string, params: { skip: number; take: number }) {
+    return prisma.conversation.findMany({
+      where: { participants: { some: { userId } } },
+      skip: params.skip,
+      take: params.take + 1,
+      orderBy: { updatedAt: "desc" },
+      include: {
+        participants: {
+          where: { userId },
+          select: { lastReadAt: true },
+        },
+        messages: { orderBy: { sentAt: "desc" }, take: 1 },
+      },
+    });
+  }
+
   async isParticipant(conversationId: string, userId: string) {
     const row = await prisma.conversationParticipant.findUnique({
       where: { conversationId_userId: { conversationId, userId } },
