@@ -1,24 +1,46 @@
-import { useState } from "react";
-import { MessageSquare } from "lucide-react";
-import { useConversations, useMessages, useSendMessage } from "@/hooks/useMessages";
+import { useState, useEffect } from "react";
+import { MessageSquare, Plus, X } from "lucide-react";
+import {
+  useConversations,
+  useMessages,
+  useSendMessage,
+  useMessageStream,
+} from "@/hooks/useMessages";
+import { messagesApi, setCurrentUserId } from "@/services/api/messages";
+import { useSessionStore } from "@/stores/session.store";
+import { ApiError } from "@/services/api/client";
 import { MessagePanel } from "@/components/MessagePanel";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { formatDate, cn } from "@/lib/utils";
 
-/** Real /messages page, replacing the earlier placeholder. */
+/**
+ * Real /messages page — conversations + messages from the real backend,
+ * SSE realtime delivery (useMessageStream: new messages appear without
+ * refresh), and a New Message composer (username → direct conversation).
+ */
 export default function MessagesPage(): JSX.Element {
   const { data: conversations, isLoading, isError, refetch } = useConversations();
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
+  const { user } = useSessionStore();
   const { data: messages, isLoading: messagesLoading } = useMessages(selectedId);
   const sendMessage = useSendMessage(selectedId);
+  useMessageStream(selectedId);
+
+  // The backend derives isMe from senderId vs the session user
+  useEffect(() => {
+    setCurrentUserId(user?.id ?? null);
+  }, [user?.id]);
 
   const activeId = selectedId ?? conversations?.[0]?.id;
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-text-primary">Messages</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold text-text-primary">Messages</h1>
+        <NewMessageButton onCreated={(id) => setSelectedId(id)} refetch={refetch} />
+      </div>
 
       {isLoading && (
         <div className="space-y-2">
@@ -73,5 +95,104 @@ export default function MessagesPage(): JSX.Element {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * NewMessageButton — username → user id (existing public GET /users/
+ * :username) → POST /conversations (direct, de-duplicated server-side) →
+ * the new conversation opens immediately.
+ */
+function NewMessageButton({
+  onCreated,
+  refetch,
+}: {
+  onCreated: (id: string) => void;
+  refetch: () => void;
+}): JSX.Element {
+  const [open, setOpen] = useState(false);
+  const [username, setUsername] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  const create = async () => {
+    setCreating(true);
+    setError(null);
+    try {
+      const userId = await messagesApi.resolveUserId(username.trim());
+      const conv = await messagesApi.createConversation({
+        type: "direct",
+        participantIds: [userId],
+      });
+      refetch();
+      onCreated(conv.id);
+      setOpen(false);
+      setUsername("");
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : `No user found with username "${username.trim()}"`,
+      );
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1.5 rounded-md bg-accent-600 px-3 py-1.5 text-sm font-medium text-text-onAccent hover:bg-accent-700"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        New message
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4">
+          <div className="w-full max-w-md rounded-lg border border-border bg-raised p-6 shadow-lg">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-text-primary">New message</h2>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="text-text-secondary hover:text-text-primary"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            {error && <div className="mb-3 rounded-md bg-danger-100 p-3 text-sm text-danger-600">{error}</div>}
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && username.trim()) void create();
+              }}
+              className="w-full rounded-md border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-500"
+              placeholder="Username to message — e.g., priya.sharma"
+              disabled={creating}
+              autoFocus
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="rounded-md border border-border px-4 py-2 text-sm text-text-primary hover:bg-sunken"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={create}
+                disabled={creating || !username.trim()}
+                className="rounded-md bg-accent-600 px-4 py-2 text-sm font-medium text-text-onAccent hover:bg-accent-700 disabled:opacity-50"
+              >
+                {creating ? "Starting…" : "Start conversation"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

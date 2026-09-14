@@ -5,6 +5,16 @@ import type {
   CompleteOnboardingRequest,
 } from "@app/shared-types";
 
+export interface JoinRequestRef {
+  id: string;
+  direction: "request" | "invitation";
+  status: "pending" | "accepted" | "rejected";
+  message?: string | null;
+  project?: { id: string; name: string; status: string } | null;
+  researchTeam?: { id: string; name: string } | null;
+  createdAt: string;
+}
+
 export interface VerificationStatus {
   role: string;
   isUniversityVerified: boolean;
@@ -58,6 +68,19 @@ export const meApi = {
     return apiFetch<Record<string, unknown>>("/users/me/verification", {
       method: "POST",
       body: input,
+    });
+  },
+
+  getJoinRequests: async (): Promise<{ data: JoinRequestRef[] }> => {
+    return apiFetch<{ data: JoinRequestRef[] }>("/users/me/join-requests");
+  },
+
+  respondToInvitation: async (
+    requestId: string,
+    action: "accept" | "decline",
+  ): Promise<Record<string, unknown>> => {
+    return apiFetch<Record<string, unknown>>(`/users/me/join-requests/${requestId}/${action}`, {
+      method: "PATCH",
     });
   },
 };

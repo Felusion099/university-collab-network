@@ -37,6 +37,7 @@ const NAV_ITEMS = [
   { to: "/research", label: "Research", icon: FlaskConical },
   { to: "/research-teams", label: "Research Teams", icon: Users2 },
   { to: "/projects", label: "Projects", icon: FolderKanban },
+  { to: "/my-projects", label: "My Projects", icon: FolderKanban },
   { to: "/publications", label: "Publications", icon: BookOpen },
   { to: "/clubs", label: "Clubs & Societies", icon: Users2 },
   { to: "/startups", label: "Startups", icon: Rocket },

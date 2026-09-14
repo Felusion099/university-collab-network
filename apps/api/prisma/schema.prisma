@@ -64,6 +64,7 @@ model User {
   userSkills                 UserSkill[]
   verificationsReviewed      Verification[]            @relation("VerificationReviewer")
   verificationsClaimed       Verification[]            @relation("VerificationSubject")
+  joinRequests               JoinRequest[]
 
   @@index([status])
   @@map("users")
@@ -287,6 +288,7 @@ model ResearchTeam {
   updatedAt          DateTime            @updatedAt @map("updated_at")
   conversations      Conversation[]
   events             Event[]
+  joinRequests        JoinRequest[]
   memberships        Membership[]
   opportunities      Opportunity[]
   researchTeamTopics ResearchTeamTopic[]
@@ -388,6 +390,11 @@ model PublicationTopic {
 model Project {
   id                  String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name                String
+  /// Who can discover this project — reuses the EXISTING Visibility enum
+  /// (same values as privacy_settings), not a new one. VISIBILITY ≠
+  /// MEMBERSHIP: visibility governs discovery; membership (ProjectMember)
+  /// governs workspace access and management. See DECISIONS.md.
+  visibility          Visibility               @default(public)
   logoUrl             String?                  @map("logo_url")
   problemStatement    String?                  @map("problem_statement")
   solutionDescription String?                  @map("solution_description")
@@ -403,6 +410,7 @@ model Project {
   search_vector       Unsupported("tsvector")? @default(dbgenerated("to_tsvector('english'::regconfig, ((COALESCE(name, ''::text) || ' '::text) || COALESCE(description, ''::text)))"))
   conversations       Conversation[]
   members             ProjectMember[]
+  joinRequests        JoinRequest[]
   skillsNeeded        ProjectSkillNeeded[]
   topics              ProjectTopic[]
   creator             User                     @relation("ProjectCreatedBy", fields: [createdBy], references: [id])
@@ -764,6 +772,38 @@ enum ResearcherType {
 
 /// Reused across profile_visibility and every *_visibility column in
 /// privacy_settings, per DATABASE_SCHEMA.md.
+model JoinRequest {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String           @map("user_id") @db.Uuid
+  projectId      String?          @map("project_id") @db.Uuid
+  researchTeamId String?          @map("research_team_id") @db.Uuid
+  /// request = user asked to join; invitation = creator/PI invited the user
+  direction      JoinRequestDirection
+  status         JoinRequestStatus @default(pending)
+  message        String?
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project        Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  researchTeam   ResearchTeam?    @relation(fields: [researchTeamId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([researchTeamId])
+  @@map("join_requests")
+}
+
+enum JoinRequestDirection {
+  request
+  invitation
+}
+
+enum JoinRequestStatus {
+  pending
+  accepted
+  rejected
+}
+
 enum Visibility {
   public
   university_only

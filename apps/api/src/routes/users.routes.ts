@@ -5,6 +5,7 @@ import { requireAuth } from "../middleware/requireAuth.js";
 import { optionalAuth } from "../middleware/optionalAuth.js";
 import * as profileController from "../controllers/profile.controller.js";
 import * as skillController from "../controllers/skill.controller.js";
+import * as joinRequestController from "../controllers/joinRequest.controller.js";
 
 const router = Router();
 
@@ -43,6 +44,22 @@ router.patch(
 );
 
 router.get("/:username", optionalAuth, profileController.getByUsername);
+
+// ============================================================================
+// MY REQUESTS / INVITATIONS — things requiring the caller's decision
+// ============================================================================
+
+router.get("/me/join-requests", requireAuth, joinRequestController.listMine);
+router.patch(
+  "/me/join-requests/:requestId/accept",
+  requireAuth,
+  joinRequestController.acceptInvitation
+);
+router.patch(
+  "/me/join-requests/:requestId/decline",
+  requireAuth,
+  joinRequestController.declineInvitation
+);
 
 export { router as usersRouter };
 

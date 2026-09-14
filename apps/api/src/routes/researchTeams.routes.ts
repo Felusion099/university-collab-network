@@ -9,6 +9,7 @@ import { validateBody, validateQuery } from "../validators/validate.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { requireProfessorVerified, requireProfessorOwnership } from "../middleware/requireProfessorOwnership.js";
 import * as controller from "../controllers/researchTeam.controller.js";
+import * as joinRequests from "../controllers/joinRequest.controller.js";
 
 const router = Router();
 
@@ -100,5 +101,14 @@ router.patch(
   validateBody(z.object({ newPIUserId: z.string().uuid() })),
   controller.transferPIOwnership
 );
+
+// ============================================================================
+// JOIN REQUESTS — same mechanism as projects
+// ============================================================================
+
+router.post("/:id/join-requests", requireAuth, joinRequests.requestToJoinTeam);
+router.get("/:id/join-requests", requireAuth, joinRequests.listTeamRequests);
+router.patch("/:id/join-requests/:requestId/accept", requireAuth, joinRequests.acceptTeamRequest);
+router.patch("/:id/join-requests/:requestId/reject", requireAuth, joinRequests.rejectTeamRequest);
 
 export { router as researchTeamsRouter };

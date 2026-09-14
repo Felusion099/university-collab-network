@@ -9,6 +9,7 @@ import { validateBody, validateQuery } from "../validators/validate.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { requireProfessorVerified, requireProfessorOwnership } from "../middleware/requireProfessorOwnership.js";
 import * as controller from "../controllers/project.controller.js";
+import * as joinRequests from "../controllers/joinRequest.controller.js";
 
 const router = Router();
 
@@ -68,5 +69,30 @@ router.get(
   validateQuery(PaginationQuerySchema),
   controller.listByProfessor
 );
+
+// ============================================================================
+// JOIN REQUESTS / INVITATIONS — one mechanism, real membership on accept
+// ============================================================================
+
+// User requests to join a project (pending; creator is notified)
+router.post("/:id/join-requests", requireAuth, joinRequests.requestToJoinProject);
+
+// Creator lists pending requests for THEIR project (server-authorized)
+router.get("/:id/join-requests", requireAuth, joinRequests.listProjectRequests);
+
+// Creator accepts / rejects → acceptance CREATES the real membership
+router.patch(
+  "/:id/join-requests/:requestId/accept",
+  requireAuth,
+  joinRequests.acceptProjectRequest
+);
+router.patch(
+  "/:id/join-requests/:requestId/reject",
+  requireAuth,
+  joinRequests.rejectProjectRequest
+);
+
+// Creator invites a user (pending invitation; invitee is notified)
+router.post("/:id/invitations", requireAuth, joinRequests.inviteToProject);
 
 export { router as projectsRouter };

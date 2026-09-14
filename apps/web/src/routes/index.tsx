@@ -35,6 +35,7 @@ import MessagesPage from "@/pages/messages/MessagesPage";
 import NotificationsPage from "@/pages/notifications/NotificationsPage";
 import SettingsPage from "@/pages/settings/SettingsPage";
 import MyPortfolioPage from "@/pages/me/MyPortfolioPage";
+import MyProjectsPage from "@/pages/me/MyProjectsPage";
 import OnboardingPage from "@/pages/onboarding/OnboardingPage";
 
 // Router skeleton (Phase 6) + Phase 7 route wiring. Full route map lives in
@@ -92,6 +93,7 @@ export const router = createBrowserRouter([
           { path: "/notifications", element: <NotificationsPage /> },
           { path: "/settings", element: <SettingsPage /> },
           { path: "/me", element: <MyPortfolioPage /> },
+          { path: "/my-projects", element: <MyProjectsPage /> },
           { path: "/onboarding", element: <OnboardingPage /> },
         ],
       },

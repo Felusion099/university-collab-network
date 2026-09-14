@@ -3,6 +3,7 @@ import { notificationRepository } from "../repositories/notification.repository.
 import { NotFoundError, ForbiddenError, BadRequestError } from "../utils/errors.js";
 import { buildPaginatedResponse, toPageParams } from "../utils/pagination.js";
 import type { CreateConversationRequest, CreateMessageRequest } from "@app/shared-types";
+import { messageBus } from "./messageBus.js";
 
 export async function create(userId: string, input: CreateConversationRequest) {
   const participantIds = Array.from(new Set([userId, ...input.participantIds]));
@@ -33,6 +34,10 @@ export async function list(userId: string, cursor: string | undefined, limit: nu
 async function assertParticipant(conversationId: string, userId: string) {
   const isParticipant = await conversationRepository.isParticipant(conversationId, userId);
   if (!isParticipant) throw new ForbiddenError("You are not a participant in this conversation");
+}
+
+export async function assertParticipantForStream(conversationId: string, userId: string) {
+  await assertParticipant(conversationId, userId);
 }
 
 export async function getById(userId: string, id: string) {
@@ -68,6 +73,9 @@ export async function sendMessage(
     invitationType: input.invitationType,
     invitationRefId: input.invitationRefId,
   });
+
+  // Realtime delivery — SSE subscribers get the message immediately
+  messageBus.publish(conversationId, msg);
 
   try {
     const conv = await conversationRepository.findById(conversationId);

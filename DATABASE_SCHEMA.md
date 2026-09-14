@@ -65,7 +65,7 @@ Constraint: exactly one of `organization_id`/`research_team_id` non-null. Index:
 ## Projects
 
 **projects**
-`id, name, logo_url, problem_statement, solution_description, description, status (enum: idea|planning|development|beta|active|completed|archived), github_url, demo_url, docs_url, created_by (FK users)`
+`id, name, visibility (enum: public|university_only|connections_only|private, default public — reuses the EXISTING Visibility enum per DECISIONS.md D-024), logo_url, problem_statement, solution_description, description, status (enum: idea|planning|development|beta|active|completed|archived), github_url, demo_url, docs_url, created_by (FK users)`, plus `join_requests` table (id, user_id FK, nullable project_id/research_team_id FKs, direction (request|invitation), status (pending|accepted|rejected), message, timestamps — ONE mechanism for both projects and research teams, both directions; migration 20260913234446)
 
 **project_members** (join): `project_id (FK projects), user_id (FK users), role_on_project`
 

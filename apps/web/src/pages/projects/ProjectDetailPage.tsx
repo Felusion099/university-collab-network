@@ -9,8 +9,10 @@ import {
   UserPlus,
   X,
   Pencil,
+  Clock,
 } from "lucide-react";
 import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import type { ProjectStatus } from "@app/shared-types";
 import { useProject } from "@/hooks/useProjects";
 import { SkillBadge } from "@/components/ui/Badge";
@@ -36,8 +38,27 @@ export default function ProjectDetailPage(): JSX.Element {
   const { user } = useSessionStore();
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [joinState, setJoinState] = useState<"idle" | "pending" | "error">("idle");
+  const [joinError, setJoinError] = useState<string | null>(null);
 
   const isCreator = Boolean(project && user && project.creator?.id === user.id);
+  const isMember = Boolean(
+    project && user && project.members.some((m) => m.userId === user.id),
+  );
+
+  const requestToJoin = async () => {
+    if (!project || !user) return;
+    setJoinError(null);
+    try {
+      // POST /projects/:id/join-requests — creates a pending request and
+      // notifies the creator; membership is created only on acceptance.
+      await apiFetch(`/projects/${project.id}/join-requests`, { method: "POST", body: {} });
+      setJoinState("pending");
+    } catch (err) {
+      setJoinState("error");
+      setJoinError(err instanceof ApiError ? err.message : "Couldn't send request.");
+    }
+  };
 
   return (
     <>
@@ -96,26 +117,43 @@ export default function ProjectDetailPage(): JSX.Element {
                   </span>
                 </div>
               </div>
-              {isCreator && (
-                <div className="ml-auto flex flex-shrink-0 gap-2">
+              <div className="ml-auto flex flex-shrink-0 flex-col items-end gap-2">
+                {isCreator ? (
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditOpen(true)}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-text-primary transition-colors hover:bg-sunken"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddMemberOpen(true)}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-text-primary transition-colors hover:bg-sunken"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" />
+                      Invite
+                    </button>
+                  </div>
+                ) : isMember ? null : joinState === "pending" ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-md bg-warning-100 px-3 py-1.5 text-sm font-medium text-warning-600">
+                    <Clock className="h-3.5 w-3.5" />
+                    Request sent — pending
+                  </span>
+                ) : (
                   <button
                     type="button"
-                    onClick={() => setIsEditOpen(true)}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm text-text-primary transition-colors hover:bg-sunken"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsAddMemberOpen(true)}
+                    onClick={requestToJoin}
                     className="inline-flex items-center gap-1.5 rounded-md bg-accent-600 px-3 py-1.5 text-sm font-medium text-text-onAccent transition-colors hover:bg-accent-700"
                   >
                     <UserPlus className="h-3.5 w-3.5" />
-                    Add Member
+                    Request to Join
                   </button>
-                </div>
-              )}
+                )}
+                {joinError && <p className="text-xs text-danger-600">{joinError}</p>}
+              </div>
             </div>
 
             {/* ABOUT / WHAT WE'RE BUILDING */}
@@ -216,6 +254,9 @@ export default function ProjectDetailPage(): JSX.Element {
               </ul>
             </section>
 
+            {/* REQUESTS TO JOIN — creator-only, real JoinRequest rows */}
+            {isCreator && <ProjectRequestsSection projectId={project.id} onSettled={() => refetch()} />}
+
             {/* LINKS */}
             {(project.githubUrl || project.demoUrl || project.docsUrl) && (
               <section className="flex flex-wrap gap-3">
@@ -276,6 +317,108 @@ export default function ProjectDetailPage(): JSX.Element {
         </Modal>
       )}
     </>
+  );
+}
+
+/**
+ * ProjectRequestsSection — the creator's pending join requests (server-
+ * authorized: GET /projects/:id/join-requests asserts creator authority).
+ * Accept creates the REAL ProjectMember record; membership counts derive
+ * from actual rows — no fake counters.
+ */
+function ProjectRequestsSection({
+  projectId,
+  onSettled,
+}: {
+  projectId: string;
+  onSettled: () => void;
+}): JSX.Element {
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["project-requests", projectId],
+    queryFn: () =>
+      apiFetch<{
+        data: {
+          id: string;
+          user: { id: string; username: string; avatarUrl: string | null; requestedRole: string };
+          message: string | null;
+          createdAt: string;
+        }[];
+      }>(`/projects/${projectId}/join-requests`),
+  });
+  const act = useMutation({
+    mutationFn: async (input: { requestId: string; action: "accept" | "reject" }) => {
+      await apiFetch(`/projects/${projectId}/join-requests/${input.requestId}/${input.action}`, {
+        method: "PATCH",
+      });
+    },
+    onSuccess: () => {
+      refetch();
+      onSettled();
+    },
+  });
+
+  if (isLoading) return <Skeleton className="h-16 w-full" />;
+  if (isError) return <p className="text-sm text-danger-600">Couldn't load requests.</p>;
+  if (!data || data.data.length === 0) {
+    return (
+      <p className="rounded-lg border border-border bg-raised p-3 text-sm text-text-muted">
+        No requests yet. When someone requests to join, you'll see them here.
+      </p>
+    );
+  }
+
+  return (
+    <section>
+      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-text-muted">
+        Requests to join
+      </h2>
+      <div className="space-y-2">
+        {data.data.map((r) => (
+          <div
+            key={r.id}
+            className="flex flex-col gap-2 rounded-lg border border-border bg-raised p-3 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              {r.user.avatarUrl ? (
+                <img src={r.user.avatarUrl} alt="" className="h-9 w-9 flex-shrink-0 rounded-full object-cover" />
+              ) : (
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-sunken text-xs font-semibold text-text-secondary">
+                  {r.user.username.slice(0, 2).toUpperCase()}
+                </span>
+              )}
+              <div className="min-w-0">
+                <Link
+                  to={`/students/${r.user.username}`}
+                  className="text-sm font-medium text-text-primary hover:text-accent-600"
+                >
+                  {r.user.username}
+                </Link>
+                <p className="text-xs text-text-muted capitalize">{r.user.requestedRole.replace("_", " ")}</p>
+                {r.message && <p className="mt-0.5 truncate text-xs text-text-secondary">"{r.message}"</p>}
+              </div>
+            </div>
+            <div className="flex flex-shrink-0 gap-2">
+              <button
+                type="button"
+                onClick={() => act.mutate({ requestId: r.id, action: "accept" })}
+                disabled={act.isPending}
+                className="rounded-md bg-success-100 px-3 py-1.5 text-xs font-medium text-success-600 hover:opacity-80 disabled:opacity-50"
+              >
+                Accept
+              </button>
+              <button
+                type="button"
+                onClick={() => act.mutate({ requestId: r.id, action: "reject" })}
+                disabled={act.isPending}
+                className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-text-primary hover:bg-sunken disabled:opacity-50"
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

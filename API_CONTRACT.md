@@ -67,6 +67,18 @@ Response `200`: full profile object, with any field the viewer isn't authorized 
 ### POST `/users/me/interests` — auth required. Body `{ "topicId": uuid }`. Links the caller to a research topic via the existing `user_research_topics` table (composite PK); portfolio `researchTopics` updates automatically.
 ### DELETE `/users/me/interests/:topicId` — auth required. Unlinks a research topic.
 
+### Join requests / invitations (one mechanism, real membership on accept)
+- `POST /projects/:id/join-requests` — auth required. Body `{ "message"? }`. Creates a PENDING request + notifies the creator (`team_recruitment`). Duplicate pending requests → 409.
+- `GET /projects/:id/join-requests` — creator-only (server-authorized). Pending requests with requester profile.
+- `PATCH /projects/:id/join-requests/:requestId/accept|reject` — creator-only. Accept CREATES the real `project_members` row; reject does not. Both notify the requester.
+- `POST /projects/:id/invitations` — creator-only. Body `{ "userId" }`. Creates a PENDING invitation + notifies the invitee (`project_invitation`).
+- `POST /research-teams/:id/join-requests` + `GET` + `PATCH .../accept|reject` — same mechanism for research teams (PI/creator authority).
+- `GET /users/me/join-requests` — the caller's pending requests + invitations (My Projects "Pending" section).
+- `PATCH /users/me/join-requests/:requestId/accept|decline` — the invitee accepts (CREATES real membership) or declines.
+
+### Project visibility
+`projects.visibility` reuses the EXISTING `Visibility` enum (`public` default, same values as privacy_settings). VISIBILITY ≠ MEMBERSHIP: visibility governs discovery; membership (`project_members`) governs workspace access. See DECISIONS D-024.
+
 ### Portfolio (composed view — NOT a stored table)
 `GET /users/:username` and `GET /users/me` responses include an optional `portfolio` object, derived server-side from the user's real relationships on every read (projects, research teams, publications, organizations, skills, research topics). Sections are privacy-filtered per viewer using the existing `PrivacySettings` fields (projects → `projectsVisibility`, teams/topics/publications → `researchVisibility`, organizations → `activityVisibility`, skills → `academicVisibility`); sections the viewer may not see are omitted from the JSON entirely (same convention as D-004). The portfolio is never persisted — it is a living view that updates automatically as platform relationships change.
 
