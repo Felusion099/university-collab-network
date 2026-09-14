@@ -134,6 +134,36 @@ export const messagesApi = {
     return apiFetch<RawConversation>("/conversations", { method: "POST", body: input });
   },
 
+  getById: async (conversationId: string): Promise<ConversationSummary | null> => {
+    try {
+      const c = await apiFetch<RawConversation & {
+        participants?: {
+          userId: string;
+          lastReadAt?: string | null;
+          user: { id: string; username: string; avatarUrl?: string | null; requestedRole?: string };
+        }[];
+      }>(`/conversations/${conversationId}`);
+      const other = (c.participants ?? []).find((p) => p.userId !== currentUserId);
+      return {
+        id: c.id,
+        title: other?.user.username ?? "Conversation",
+        lastMessagePreview: "",
+        lastMessageAt: c.updatedAt.slice(0, 10),
+        lastMessageAtFull: c.updatedAt,
+        unread: false,
+        otherParticipant: other
+          ? {
+              userId: other.userId,
+              username: other.user.username,
+              role: other.user.requestedRole ?? "member",
+            }
+          : null,
+      };
+    } catch {
+      return null;
+    }
+  },
+
   openOrCreateDirect: async (input: { userId: string }): Promise<{ id: string }> => {
     return apiFetch<{ id: string }>("/conversations/direct", {
       method: "POST",

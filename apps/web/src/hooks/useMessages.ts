@@ -80,3 +80,11 @@ export function useSendMessage(conversationId: string | undefined) {
     },
   });
 }
+
+export function useConversationById(conversationId: string | undefined) {
+  return useQuery({
+    queryKey: ["conversation", conversationId],
+    queryFn: () => messagesApi.getById(conversationId!),
+    enabled: Boolean(conversationId),
+  });
+}

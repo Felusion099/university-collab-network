@@ -6,6 +6,7 @@ import {
   useMessages,
   useSendMessage,
   useMessageStream,
+  useConversationById,
 } from "@/hooks/useMessages";
 import { messagesApi, setCurrentUserId } from "@/services/api/messages";
 import { useSessionStore } from "@/stores/session.store";
@@ -43,6 +44,14 @@ export default function MessagesPage(): JSX.Element {
 
   const activeId = selectedId ?? conversations?.[0]?.id;
   const activeConversation = conversations?.find((c) => c.id === activeId);
+  // Deep link (?c=) or brand-new conversation: the list may be empty or
+  // stale — fetch the conversation directly so the pane + composer always
+  // render. THE TEXTBOX MUST NEVER BE MISSING.
+  const shouldFetchById = Boolean(activeId) && !activeConversation;
+  const { data: fetchedConversation } = useConversationById(
+    shouldFetchById ? activeId : undefined,
+  );
+  const headerConversation = activeConversation ?? fetchedConversation ?? null;
 
   return (
     <div className="space-y-6">
@@ -69,18 +78,23 @@ export default function MessagesPage(): JSX.Element {
 
       {isError && <ErrorState title="Couldn't load conversations" onRetry={() => refetch()} />}
 
-      {!isLoading && !isError && conversations && conversations.length === 0 && (
+      {!isLoading && !isError && !activeId && conversations && conversations.length === 0 && (
         <EmptyState
           icon={MessageSquare}
           title="No conversations yet"
-          description="Messages with your connections and project teams will show up here."
+          description="Message someone from their profile, or use New message above."
         />
       )}
 
-      {!isLoading && !isError && conversations && conversations.length > 0 && (
+      {!isLoading && !isError && activeId && (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3 md:h-[28rem]">
           <div className="space-y-1 overflow-y-auto md:col-span-1">
-            {conversations.map((c) => (
+            {conversations && conversations.length === 0 && (
+              <p className="px-1 py-2 text-xs text-text-muted">
+                Your conversation list is updating…
+              </p>
+            )}
+            {(conversations ?? []).map((c) => (
               <button
                 key={c.id}
                 type="button"
@@ -116,26 +130,26 @@ export default function MessagesPage(): JSX.Element {
 
           <div className="flex flex-col rounded-lg border border-border bg-raised md:col-span-2 md:h-[34rem]">
             {/* CONVERSATION HEADER — who am I talking to */}
-            {activeConversation && (
+            {headerConversation && (
               <div className="flex items-center justify-between gap-3 border-b border-border p-3">
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-sunken text-sm font-semibold text-text-secondary">
-                    {activeConversation.title.slice(0, 2).toUpperCase()}
+                    {headerConversation.title.slice(0, 2).toUpperCase()}
                   </span>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-text-primary">
-                      {activeConversation.title}
+                      {headerConversation.title}
                     </p>
-                    {activeConversation.otherParticipant && (
+                    {headerConversation.otherParticipant && (
                       <p className="truncate text-xs capitalize text-text-muted">
-                        {activeConversation.otherParticipant.role.replace("_", " ")}
+                        {headerConversation.otherParticipant.role.replace("_", " ")}
                       </p>
                     )}
                   </div>
                 </div>
-                {activeConversation.otherParticipant && (
+                {headerConversation.otherParticipant && (
                   <Link
-                    to={`/students/${activeConversation.otherParticipant.username}`}
+                    to={`/students/${headerConversation.otherParticipant.username}`}
                     className="flex-shrink-0 text-xs text-accent-600 hover:text-accent-700"
                   >
                     View Profile
