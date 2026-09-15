@@ -87,7 +87,10 @@ export class UserRepository {
       where,
       skip: offset,
       take: limit,
-      select: { id: true, username: true, email: true, requestedRole: true, status: true, avatarUrl: true, isUniversityVerified: true },
+      // SAFE_USER_SELECT semantics: email is connections_only by default
+      // (privacy_settings) and must never appear in a public list — any
+      // viewer (even anonymous) could harvest every user's address.
+      select: { id: true, username: true, requestedRole: true, status: true, avatarUrl: true, isUniversityVerified: true },
     });
     return { data: users, nextCursor: users.length === limit ? String(offset + limit) : null };
   }

@@ -306,6 +306,10 @@ export async function completeOnboarding(userId: string) {
  * table, no new relationship type.
  */
 export async function addOwnInterest(userId: string, topicId: string) {
+  // Malformed ids (non-uuid) would surface as Prisma 500s — reject early
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(topicId)) {
+    throw new NotFoundError("Research topic not found");
+  }
   const topic = await prisma.researchTopic.findUnique({ where: { id: topicId }, select: { id: true } });
   if (!topic) throw new NotFoundError("Research topic not found");
   await prisma.userResearchTopic.upsert({

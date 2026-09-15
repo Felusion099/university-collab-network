@@ -44,6 +44,17 @@ export async function create(userId: string, input: CreateConversationRequest) {
     if (existing) return existing;
   }
 
+  // CRITICAL authorization: project/team chats are member-only workspaces.
+  // Without this check, any authenticated user could create a project
+  // conversation for ANY project, become a participant, and gain full
+  // chat access (read/send/stream all check conversation_participants).
+  if (input.projectId) {
+    await assertProjectChatAccess(input.projectId, userId);
+  }
+  if (input.researchTeamId) {
+    await assertTeamChatAccess(input.researchTeamId, userId);
+  }
+
   return conversationRepository.create({
     type: input.type,
     participantIds,
@@ -72,6 +83,29 @@ async function assertParticipant(conversationId: string, userId: string) {
 
 export async function assertParticipantForStream(conversationId: string, userId: string) {
   await assertParticipant(conversationId, userId);
+}
+
+/** Project chat is member-only: the requester must be the creator or an
+ * accepted project member. Server-side — the frontend never decides. */
+async function assertProjectChatAccess(projectId: string, userId: string) {
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
+  if (!project) throw new NotFoundError("Project not found");
+  if (project.createdBy === userId) return;
+  const member = await prisma.projectMember.findUnique({
+    where: { projectId_userId: { projectId, userId } },
+  });
+  if (!member) throw new ForbiddenError("Only project members can access project chat");
+}
+
+/** Research-team chat is member-only: PI, creator, or accepted member. */
+async function assertTeamChatAccess(researchTeamId: string, userId: string) {
+  const team = await prisma.researchTeam.findUnique({ where: { id: researchTeamId } });
+  if (!team) throw new NotFoundError("Research team not found");
+  if (team.piUserId === userId || team.createdBy === userId) return;
+  const member = await prisma.membership.findFirst({
+    where: { researchTeamId, userId },
+  });
+  if (!member) throw new ForbiddenError("Only team members can access team chat");
 }
 
 /**

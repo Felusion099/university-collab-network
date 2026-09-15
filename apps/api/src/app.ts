@@ -17,6 +17,15 @@ export function createApp(): Express {
     app.use(
       pinoHttp({
         logger,
+        // The SSE stream URL carries ?token=<accessToken> — never log it
+        // in plain text. Every logged URL has its query string stripped.
+        serializers: {
+          req: (req) => ({
+            type: "request",
+            method: req.method,
+            url: req.url?.split("?")[0],
+          }),
+        },
         autoLogging: {
           ignore: (req: IncomingMessage) => req.url === "/health",
         },

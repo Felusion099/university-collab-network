@@ -142,7 +142,6 @@ export const directoryApi = {
       data?: {
         id: string;
         username: string;
-        email?: string;
         requestedRole?: string;
         avatarUrl?: string | null;
         isUniversityVerified?: boolean;
@@ -154,8 +153,8 @@ export const directoryApi = {
     return {
       data: (raw.data ?? []).map((u) => ({
         id: u.id,
-        username: u.username ?? u.email?.split('@')[0] ?? 'unknown',
-        fullName: u.email?.split('@')[0] ?? u.username ?? 'Unknown',
+        username: u.username ?? 'unknown',
+        fullName: u.username ?? 'Unknown',
         role: (u.requestedRole ?? 'student') as UserRole,
         avatarUrl: u.avatarUrl ?? null,
         isUniversityVerified: u.isUniversityVerified ?? false,
