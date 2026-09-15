@@ -38,11 +38,14 @@ export function useMessages(conversationId: string | undefined) {
 export function useMessageStream(conversationId: string | undefined) {
   const queryClient = useQueryClient();
   const [connected, setConnected] = useState(false);
+  // Read the token REACTIVELY — after a refresh the store gets a new
+  // token and this effect re-creates the stream with it. Without this,
+  // the stream reconnects forever with the stale expired token
+  // ('Reconnecting…' never resolves).
+  const accessToken = useSessionStore((s) => s.accessToken);
 
   useEffect(() => {
-    if (!conversationId) return;
-    const accessToken = useSessionStore.getState().accessToken;
-    if (!accessToken) return;
+    if (!conversationId || !accessToken) return;
 
     // EventSource cannot send Authorization headers — the token travels
     // via ?token= and is validated server-side with the same verification
@@ -71,7 +74,7 @@ export function useMessageStream(conversationId: string | undefined) {
       source.close();
       setConnected(false);
     };
-  }, [conversationId, queryClient]);
+  }, [conversationId, accessToken, queryClient]);
 
   return connected;
 }

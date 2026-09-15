@@ -41,6 +41,7 @@ export default function MessagesPage(): JSX.Element {
   } = useMessages(selectedId);
   const sendMessage = useSendMessage(selectedId);
   const connected = useMessageStream(selectedId);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   // The backend derives isMe from senderId vs the session user
   useEffect(() => {
@@ -105,6 +106,7 @@ export default function MessagesPage(): JSX.Element {
                 type="button"
                 onClick={() => {
                   setSelectedId(c.id);
+                  setSendError(null);
                   setSearchParams({ c: c.id }, { replace: true });
                 }}
                 className={cn(
@@ -163,6 +165,11 @@ export default function MessagesPage(): JSX.Element {
               </div>
             )}
             <div className="min-h-0 flex-1 p-3">
+            {sendError && (
+              <div className="mb-2 rounded-md bg-danger-100 px-3 py-2 text-sm text-danger-600">
+                {sendError}
+              </div>
+            )}
             {messagesLoading && <Skeleton className="h-full w-full" />}
             {!messagesLoading && messagesError && (
               <div className="flex h-full flex-col items-center justify-center gap-2">
@@ -185,11 +192,19 @@ export default function MessagesPage(): JSX.Element {
                 onSend={async (body) => {
                   // No fake "Sent" — the message is only confirmed after
                   // the backend accepts it; failure preserves the draft
-                  // for retry.
+                  // AND surfaces the actual reason (session expired vs
+                  // forbidden vs server error).
                   try {
                     await sendMessage.mutateAsync(body);
                     return true;
-                  } catch {
+                  } catch (err) {
+                    setSendError(
+                      err instanceof ApiError
+                        ? err.status === 401
+                          ? "Your session expired — please log in again."
+                          : err.message
+                        : "Message couldn't be sent.",
+                    );
                     return false;
                   }
                 }}
