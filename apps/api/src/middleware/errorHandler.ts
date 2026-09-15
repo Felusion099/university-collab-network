@@ -11,6 +11,15 @@ export function errorHandler(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _next: NextFunction,
 ): void {
+  // 0. body-parser SyntaxError (malformed/strict-rejected JSON payloads)
+  // must be a 400, never a 500 — the payload was bad, not the server.
+  if (err instanceof SyntaxError && "status" in err && (err as { status?: number }).status === 400) {
+    res.status(400).json({
+      error: { code: "BAD_REQUEST", message: "Invalid request payload" },
+    });
+    return;
+  }
+
   // 1. Handled AppError instances
   if (err instanceof AppError) {
     const errorBody: ErrorResponse["error"] = {

@@ -115,7 +115,11 @@ export const messagesApi = {
   sendMessage: async (conversationId: string, body: string): Promise<MessageItem> => {
     const raw = await apiFetch<RawMessage>(`/conversations/${conversationId}/messages`, {
       method: "POST",
-      body,
+      // The schema expects { body: string } — passing the raw string
+      // produced a bare JSON document that body-parser's strict mode
+      // rejected (500). THE one-line root cause of 'Message couldn't be
+      // sent.'
+      body: { body },
     });
     return {
       id: raw.id,
