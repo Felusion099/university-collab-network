@@ -33,7 +33,12 @@ export default function MessagesPage(): JSX.Element {
     searchParams.get("c") ?? undefined,
   );
   const { user } = useSessionStore();
-  const { data: messages, isLoading: messagesLoading } = useMessages(selectedId);
+  const {
+    data: messages,
+    isLoading: messagesLoading,
+    isError: messagesError,
+    refetch: refetchMessages,
+  } = useMessages(selectedId);
   const sendMessage = useSendMessage(selectedId);
   const connected = useMessageStream(selectedId);
 
@@ -159,9 +164,24 @@ export default function MessagesPage(): JSX.Element {
             )}
             <div className="min-h-0 flex-1 p-3">
             {messagesLoading && <Skeleton className="h-full w-full" />}
-            {!messagesLoading && messages && (
+            {!messagesLoading && messagesError && (
+              <div className="flex h-full flex-col items-center justify-center gap-2">
+                <p className="text-sm text-danger-600">Couldn't load messages.</p>
+                <button
+                  type="button"
+                  onClick={() => refetchMessages()}
+                  className="rounded-md border border-border px-3 py-1.5 text-sm text-text-primary hover:bg-sunken"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+            {/* THE COMPOSER MUST NEVER BE HIDDEN — it renders even if the
+                history failed to load (messages ?? []), so the user can
+                always send. */}
+            {!messagesLoading && (
               <MessagePanel
-                messages={messages}
+                messages={messages ?? []}
                 onSend={async (body) => {
                   // No fake "Sent" — the message is only confirmed after
                   // the backend accepts it; failure preserves the draft

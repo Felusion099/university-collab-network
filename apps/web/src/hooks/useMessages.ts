@@ -15,8 +15,14 @@ export function useMessages(conversationId: string | undefined) {
     queryKey: ["messages", conversationId],
     queryFn: async () => {
       const messages = await messagesApi.listMessages(conversationId!);
-      // Opening the conversation marks it read (database-authoritative)
-      await messagesApi.markRead(conversationId!);
+      // Opening the conversation marks it read (database-authoritative).
+      // A read-state failure must never break loading the messages
+      // themselves — the composer depends on this query.
+      try {
+        await messagesApi.markRead(conversationId!);
+      } catch {
+        // non-blocking
+      }
       return messages;
     },
     enabled: Boolean(conversationId),
