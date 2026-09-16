@@ -37,6 +37,7 @@ import SettingsPage from "@/pages/settings/SettingsPage";
 import MyPortfolioPage from "@/pages/me/MyPortfolioPage";
 import MyProjectsPage from "@/pages/me/MyProjectsPage";
 import OnboardingPage from "@/pages/onboarding/OnboardingPage";
+import JoinGroupPage from "@/pages/groups/JoinGroupPage";
 
 // Router skeleton (Phase 6) + Phase 7 route wiring. Full route map lives in
 // FILE_STRUCTURE.md's "Route → Owning Phase Map" — routes not listed below
@@ -57,6 +58,7 @@ export const router = createBrowserRouter([
       { path: "/signup", element: <SignupPage /> },
     ],
   },
+  { path: "/groups/join/:token", element: <JoinGroupPage /> },
   {
     element: <ProtectedRoute />,
     children: [

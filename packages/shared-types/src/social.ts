@@ -31,6 +31,7 @@ export const CreateConversationRequestSchema = z.object({
   projectId: z.string().uuid().optional(),
   researchTeamId: z.string().uuid().optional(),
   organizationId: z.string().uuid().optional(),
+  groupId: z.string().uuid().optional(),
 });
 export type CreateConversationRequest = z.infer<typeof CreateConversationRequestSchema>;
 

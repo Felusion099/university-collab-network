@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { apiFetch } from "@/services/api/client";
+import { groupsApi } from "@/services/api/groups";
 import type { NotificationItem } from "@/services/api/notifications";
 
 /** Real /notifications page, replacing the earlier placeholder. */
@@ -22,8 +23,14 @@ export default function NotificationsPage(): JSX.Element {
   // invitations -> Accept/Decline (real membership on accept).
   const action = useMutation({
     mutationFn: async (input: { notification: NotificationItem; action: "accept" | "decline" }) => {
+      const kind = input.notification.payload.kind as string | undefined;
       const requestId = input.notification.payload.requestId as string | undefined;
       if (!requestId) throw new Error("Missing request reference");
+      // Group invitations route through the groups endpoints (same
+      // JoinRequest record — no separate invitation systems).
+      if (kind === "group_invitation") {
+        return groupsApi.respondToInvitation(requestId, input.action);
+      }
       return apiFetch(`/users/me/join-requests/${requestId}/${input.action}`, {
         method: "PATCH",
       });

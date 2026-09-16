@@ -54,6 +54,7 @@ export function NotificationPanel({
         const requestId = typeof n.payload.requestId === "string" ? n.payload.requestId : "";
         const isJoinRequest = kind === "project_join_request" || kind === "team_join_request";
         const isInvitation =
+          kind === "group_invitation" ||
           kind === "project_invitation" ||
           (n.type === "project_invitation" && requestId && !isJoinRequest) ||
           kind === "research_team_invitation";

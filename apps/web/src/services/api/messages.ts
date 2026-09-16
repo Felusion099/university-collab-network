@@ -14,6 +14,9 @@ export interface ConversationSummary {
     username: string;
     role: string;
   } | null;
+  /** Conversation context — drives the Messages tabs (Direct / Groups /
+   * Project·Team) and the conversation header. */
+  type: "direct" | "group" | "project" | "research_team" | "club" | "other";
 }
 
 export interface MessageItem {
@@ -67,6 +70,7 @@ export const messagesApi = {
       const mine = (c.participants ?? []).find((p) => p.userId === currentUserId);
       const last = (c.messages ?? [])[0];
       const lastSentAt = last?.sentAt ?? c.updatedAt;
+      const convType = (c.type as RawConversation["type"]) ?? "other";
       // Real unread: last message is newer than my lastReadAt, and it
       // wasn't sent by me.
       const unread =
@@ -88,6 +92,7 @@ export const messagesApi = {
               role: other.user.requestedRole ?? "member",
             }
           : null,
+        type: convType as ConversationSummary["type"],
       };
     });
   },
@@ -150,6 +155,7 @@ export const messagesApi = {
       const other = (c.participants ?? []).find((p) => p.userId !== currentUserId);
       return {
         id: c.id,
+        type: ((c.type as RawConversation["type"]) ?? "other") as ConversationSummary["type"],
         title: other?.user.username ?? "Conversation",
         lastMessagePreview: "",
         lastMessageAt: c.updatedAt.slice(0, 10),

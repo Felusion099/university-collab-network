@@ -26,6 +26,7 @@ export class ConversationRepository {
     projectId?: string;
     researchTeamId?: string;
     organizationId?: string;
+    groupId?: string;
   }) {
     return prisma.conversation.create({
       data: {
@@ -33,6 +34,7 @@ export class ConversationRepository {
         project: data.projectId ? { connect: { id: data.projectId } } : undefined,
         researchTeam: data.researchTeamId ? { connect: { id: data.researchTeamId } } : undefined,
         organization: data.organizationId ? { connect: { id: data.organizationId } } : undefined,
+        group: data.groupId ? { connect: { id: data.groupId } } : undefined,
         participants: { create: data.participantIds.map((userId) => ({ userId })) },
       },
       include: { participants: { include: { user: { select: SAFE_USER_SELECT } } } },

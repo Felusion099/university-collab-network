@@ -61,6 +61,7 @@ export async function create(userId: string, input: CreateConversationRequest) {
     projectId: input.projectId,
     researchTeamId: input.researchTeamId,
     organizationId: input.organizationId,
+    groupId: input.groupId,
   });
 }
 
