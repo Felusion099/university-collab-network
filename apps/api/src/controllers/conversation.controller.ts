@@ -74,8 +74,8 @@ export async function markRead(
 ): Promise<void> {
   try {
     const result = await conversationService.markConversationRead(
-      req.user!.id,
       req.params.id as string,
+      req.user!.id,
     );
     res.status(200).json(result);
   } catch (err: unknown) {
