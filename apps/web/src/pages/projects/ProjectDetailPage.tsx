@@ -104,6 +104,11 @@ export default function ProjectDetailPage(): JSX.Element {
                   <span className="rounded-full bg-sunken px-2.5 py-0.5 text-xs font-medium capitalize text-text-secondary">
                     {project.status}
                   </span>
+                  {project.status !== "completed" && project.status !== "archived" && project.skillsNeeded.length > 0 && (
+                    <span className="rounded-full bg-success-100 px-2.5 py-0.5 text-xs font-medium text-success-600">
+                      Recruiting · {project.skillsNeeded.length} role{project.skillsNeeded.length === 1 ? "" : "s"} needed
+                    </span>
+                  )}
                   {project.creator && (
                     <Link
                       to={`/students/${project.creator.username}`}

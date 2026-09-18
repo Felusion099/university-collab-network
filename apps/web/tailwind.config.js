@@ -67,6 +67,15 @@ export default {
         base: "var(--duration-base)",
         slow: "var(--duration-slow)",
       },
+      // Single z-index scale (02_DESIGN_SYSTEM_SPEC.md §12 layering) —
+      // no arbitrary z-index values: shell < sticky < popover < drawer < dialog.
+      zIndex: {
+        shell: "10",
+        sticky: "20",
+        popover: "30",
+        drawer: "40",
+        dialog: "50",
+      },
       ringColor: {
         DEFAULT: "var(--focus-ring)",
       },

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -23,17 +23,37 @@ export function SearchBar({
   className?: string;
 }): JSX.Element {
   const [draft, setDraft] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Keep local draft in sync if the parent resets `value` externally
   // (e.g. a "clear filters" action elsewhere on the page).
   useEffect(() => setDraft(value), [value]);
+
+  // `/` focuses this search when no other input is focused (03 §5) —
+  // Escape clears focus but preserves the query.
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent): void {
+      const target = e.target as HTMLElement | null;
+      const typing =
+        target &&
+        (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+      if (e.key === "/" && !typing) {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+      if (e.key === "Escape" && document.activeElement === inputRef.current) {
+        inputRef.current?.blur();
+      }
+    }
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, []);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (draft !== value) onChange(draft);
     }, 300);
     return () => clearTimeout(timeout);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally excludes `value`/`onChange`: this effect debounces `draft`, re-running it on every parent-driven `value` change would cancel the user's own typing.
   }, [draft]);
 
   return (
@@ -43,6 +63,7 @@ export function SearchBar({
         aria-hidden="true"
       />
       <input
+        ref={inputRef}
         type="search"
         role="searchbox"
         value={draft}

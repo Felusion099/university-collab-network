@@ -1,14 +1,14 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * Modal — ARCHITECTURE.md §5. Portal-based, closes on Escape and
- * backdrop click, traps nothing fancier than that (no full focus-trap
- * library added — not in the approved dependency list, and this app's
- * modals so far are simple confirm/form dialogs, not complex enough to
- * justify one; revisit if a future modal genuinely needs it).
+ * Modal — ARCHITECTURE.md §5 + ACCESSIBILITY_SPEC.md §7: portal-based,
+ * accessible dialog with an accessible name, focus moving into it on open,
+ * a focus trap while open, Escape + backdrop close, and focus restored to
+ * the triggering control after close. No focus-trap dependency — a small
+ * native implementation is sufficient and keeps dependencies minimal.
  */
 export function Modal({
   open,
@@ -23,13 +23,47 @@ export function Modal({
   children: ReactNode;
   className?: string;
 }): JSX.Element | null {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (!open) return;
+    // Focus restore — remember the trigger, restore on close (06 §7)
+    restoreFocusRef.current = document.activeElement as HTMLElement | null;
+    dialogRef.current?.querySelector<HTMLElement>(
+      "input, button, textarea, select, [tabindex]",
+    )?.focus();
+
     function handleKey(e: KeyboardEvent): void {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      // Focus trap: keep Tab within the dialog (06 §7)
+      if (e.key === "Tab" && dialogRef.current) {
+        const focusables = Array.from(
+          dialogRef.current.querySelectorAll<HTMLElement>(
+            'input, button, textarea, select, [tabindex]:not([tabindex="-1"])',
+          ),
+        ).filter((el) => !el.hasAttribute("disabled"));
+        if (focusables.length === 0) return;
+        const first = focusables[0]!;
+        const last = focusables[focusables.length - 1]!;
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     }
     document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      // Restore focus to the trigger (06 §7)
+      restoreFocusRef.current?.focus();
+    };
   }, [open, onClose]);
 
   if (!open) return null;
@@ -39,10 +73,11 @@ export function Modal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="z-dialog fixed inset-0 flex items-center justify-center p-4"
     >
-      <div className="absolute inset-0 bg-black/40" aria-hidden="true" onClick={onClose} />
+      <div className="absolute inset-0 bg-overlay" aria-hidden="true" onClick={onClose} />
       <div
+        ref={dialogRef}
         className={cn(
           "relative w-full max-w-md rounded-lg border border-border bg-raised p-5 shadow-lg",
           className,

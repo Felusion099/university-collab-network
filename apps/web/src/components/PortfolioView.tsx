@@ -230,6 +230,23 @@ export function PortfolioView({
         </section>
       )}
 
+      {/* AVAILABILITY — contextual info, not a rating (01 §10) */}
+      {buildAvailability(user) && (
+        <section>
+          <SectionTitle>Availability</SectionTitle>
+          <div className="flex flex-wrap gap-1.5">
+            {buildAvailability(user)!.map((a) => (
+              <span
+                key={a}
+                className="inline-flex items-center rounded-full bg-success-100 px-2.5 py-0.5 text-xs font-medium text-success-600"
+              >
+                {a}
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* COLLABORATION — what can I collaborate with this person on */}
       {collaboration && (
         <section>
@@ -348,4 +365,32 @@ function buildCollaboration(
   }
 
   return parts.length > 0 ? parts.join(" ") : null;
+}
+
+
+/** Availability intents from EXISTING fields — never invented. */
+function buildAvailability(user: UserProfileResponse): string[] {
+  const items: string[] = [];
+  if (user.professorProfile?.mentorshipAvailable) {
+    items.push("Open to mentorship");
+  }
+  if (user.researcherProfile?.currentAvailability) {
+    items.push("Open to collaboration");
+  }
+  if (user.studentProfile?.lookingFor) {
+    const lf = user.studentProfile.lookingFor;
+    const map: Record<string, string> = {
+      teammates: "Looking for teammates",
+      research: "Open to research",
+      internship: "Open to internships",
+      mentoring: "Open to mentorship",
+      networking: "Open to networking",
+    };
+    const raw = Array.isArray(lf) ? lf.map(String) : typeof lf === "string" ? [lf] : [];
+    for (const r of raw) {
+      const label = map[r] ?? `Open to ${r.replace(/_/g, " ")}`;
+      if (!items.includes(label)) items.push(label);
+    }
+  }
+  return items;
 }
