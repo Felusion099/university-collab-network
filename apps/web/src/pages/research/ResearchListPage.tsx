@@ -17,13 +17,17 @@ export default function ResearchListPage(): JSX.Element {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col justify-between gap-4 border-b border-border pb-6 md:flex-row md:items-end">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-text-primary">Research Topics</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-text-primary">Research</h1>
           <p className="mt-1 text-sm text-text-secondary">
             Browse active research areas and the teams working on them.
           </p>
         </div>
+        <span className="text-xs text-text-muted">
+          <strong className="text-text-primary">{topics.length}</strong> active{" "}
+          {topics.length === 1 ? "area" : "areas"}
+        </span>
         {(user?.role === "professor") && (
           <button
             type="button"

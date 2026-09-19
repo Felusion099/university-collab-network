@@ -37,7 +37,7 @@ export function UserCard({
     <Link
       to={`/${routeSegment}/${user.username}`}
       className={cn(
-        "flex flex-col gap-3 rounded-lg border border-border bg-raised p-4 transition-colors hover:border-accent-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
+        "flex flex-col gap-3 rounded-xl border border-border bg-raised p-5 shadow-sm transition-all hover:border-accent-500 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
         className,
       )}
     >
@@ -85,7 +85,7 @@ export function UserCard({
  * once real cards replace it (spec §40's loading-state requirement). */
 UserCard.Skeleton = function UserCardSkeleton(): JSX.Element {
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-raised p-4">
+    <div className="flex flex-col gap-3 rounded-xl border border-border bg-raised p-5">
       <div className="flex items-start gap-3">
         <Skeleton className="h-11 w-11 flex-shrink-0 rounded-full" />
         <div className="flex-1 space-y-2">

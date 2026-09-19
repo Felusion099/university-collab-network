@@ -1,29 +1,33 @@
 import { useState } from "react";
-import { Users2, Users, User, Plus, X } from "lucide-react";
-import { useResearchTeamsList } from "@/hooks/useResearchTeams";
+import { FlaskConical, Users, BookOpen, Plus, X } from "lucide-react";
+import { useResearchTopicsList } from "@/hooks/useResearch";
 import { ResearchCard } from "@/components/cards/ResearchCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { useSessionStore } from "@/stores/session.store";
 import { apiFetch } from "@/services/api/client";
 
-export default function ResearchTeamsListPage(): JSX.Element {
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+export default function ResearchListPage(): JSX.Element {
   const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useResearchTeamsList({});
+    useResearchTopicsList({});
   const { user } = useSessionStore();
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
-  const teams = data?.pages.flatMap((page) => page.data) ?? [];
+  const topics = data?.pages.flatMap((page) => page.data) ?? [];
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col justify-between gap-4 border-b border-border pb-6 md:flex-row md:items-end">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-text-primary">Research Teams</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-text-primary">Research</h1>
           <p className="mt-1 text-sm text-text-secondary">
-            Active labs and teams, led by a PI, working across one or more topics.
+            Browse active research areas and the teams working on them.
           </p>
         </div>
+        <span className="text-xs text-text-muted">
+          <strong className="text-text-primary">{topics.length}</strong> active{" "}
+          {topics.length === 1 ? "area" : "areas"}
+        </span>
         {(user?.role === "professor") && (
           <button
             type="button"
@@ -31,7 +35,7 @@ export default function ResearchTeamsListPage(): JSX.Element {
             className="inline-flex items-center gap-2 rounded-md bg-accent-600 px-4 py-2 text-sm font-medium text-text-onAccent transition-colors hover:bg-accent-700"
           >
             <Plus className="h-4 w-4" />
-            Create Team
+            Create Topic
           </button>
         )}
       </div>
@@ -44,24 +48,30 @@ export default function ResearchTeamsListPage(): JSX.Element {
         </div>
       )}
 
-      {isError && <ErrorState title="Couldn't load research teams" onRetry={() => refetch()} />}
+      {isError && <ErrorState title="Couldn't load research topics" onRetry={() => refetch()} />}
 
-      {!isLoading && !isError && teams.length === 0 && (
-        <EmptyState icon={Users2} title="No research teams listed yet" />
+      {!isLoading && !isError && topics.length === 0 && (
+        <EmptyState icon={FlaskConical} title="No research topics listed yet" />
       )}
 
-      {!isLoading && !isError && teams.length > 0 && (
+      {!isLoading && !isError && topics.length > 0 && (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {teams.map((team) => (
+            {topics.map((topic) => (
               <ResearchCard
-                key={team.id}
-                href={`/research-teams/${team.id}`}
-                title={team.name}
-                description={team.description}
+                key={topic.id}
+                href={`/research/${topic.slug}`}
+                title={topic.name}
+                description={topic.description}
                 stats={[
-                  { icon: User, label: team.piName },
-                  { icon: Users, label: `${team.memberCount} members` },
+                  {
+                    icon: Users,
+                    label: `${topic.teamCount} team${topic.teamCount === 1 ? "" : "s"}`,
+                  },
+                  {
+                    icon: BookOpen,
+                    label: `${topic.publicationCount} publication${topic.publicationCount === 1 ? "" : "s"}`,
+                  },
                 ]}
               />
             ))}
@@ -84,7 +94,7 @@ export default function ResearchTeamsListPage(): JSX.Element {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-lg bg-raised p-6 shadow-xl">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-text-primary">Create Research Team</h2>
+              <h2 className="text-xl font-semibold text-text-primary">Create Research Topic</h2>
               <button
                 type="button"
                 onClick={() => setIsCreateOpen(false)}
@@ -93,7 +103,7 @@ export default function ResearchTeamsListPage(): JSX.Element {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <CreateResearchTeamForm onClose={() => setIsCreateOpen(false)} onSuccess={() => refetch()} />
+            <CreateResearchTopicForm onClose={() => setIsCreateOpen(false)} onSuccess={() => refetch()} />
           </div>
         </div>
       )}
@@ -101,7 +111,7 @@ export default function ResearchTeamsListPage(): JSX.Element {
   );
 }
 
-function CreateResearchTeamForm({
+function CreateResearchTopicForm({
   onClose,
   onSuccess,
 }: {
@@ -119,7 +129,7 @@ function CreateResearchTeamForm({
     setIsSubmitting(true);
     setError(null);
     try {
-      await apiFetch("/research-teams/professor", {
+      await apiFetch("/research-topics/professor", {
         method: "POST",
         body: { name: name.trim(), description: description.trim() || undefined },
       });
@@ -139,7 +149,7 @@ function CreateResearchTeamForm({
       )}
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-text-primary mb-1">
-          Team Name *
+          Topic Name *
         </label>
         <input
           id="name"
@@ -147,7 +157,7 @@ function CreateResearchTeamForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="w-full rounded-md border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-500"
-          placeholder="e.g., Computational Biology Lab"
+          placeholder="e.g., Machine Learning for Healthcare"
           required
           disabled={isSubmitting}
         />
@@ -162,7 +172,7 @@ function CreateResearchTeamForm({
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
           className="w-full rounded-md border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-500"
-          placeholder="Brief description of the research team..."
+          placeholder="Brief description of the research area..."
           disabled={isSubmitting}
         />
       </div>
@@ -180,7 +190,7 @@ function CreateResearchTeamForm({
           disabled={isSubmitting || !name.trim()}
           className="rounded-md bg-accent-600 px-4 py-2 text-sm font-medium text-text-onAccent transition-colors hover:bg-accent-700 disabled:opacity-50"
         >
-          {isSubmitting ? "Creating..." : "Create Team"}
+          {isSubmitting ? "Creating..." : "Create Topic"}
         </button>
       </div>
     </form>

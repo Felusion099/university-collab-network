@@ -38,7 +38,7 @@ export function ProfileCard({
     .toUpperCase();
 
   return (
-    <div className={cn("rounded-lg border border-border bg-raised p-5", className)}>
+    <div className={cn("rounded-xl border border-border bg-raised p-6 shadow-sm", className)}>
       <div className="flex items-start gap-4">
         {user.avatarUrl ? (
           <img
@@ -83,7 +83,7 @@ export function ProfileCard({
 
 ProfileCard.Skeleton = function ProfileCardSkeleton(): JSX.Element {
   return (
-    <div className="rounded-lg border border-border bg-raised p-5">
+    <div className="rounded-xl border border-border bg-raised p-6 shadow-sm">
       <div className="flex items-start gap-4">
         <Skeleton className="h-14 w-14 flex-shrink-0 rounded-full" />
         <div className="flex-1 space-y-2">

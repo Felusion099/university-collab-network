@@ -28,7 +28,7 @@ export function ProjectCard({
     <Link
       to={`/projects/${project.id}`}
       className={cn(
-        "flex flex-col gap-3 rounded-xl border border-border bg-raised p-5 transition-colors hover:border-accent-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
+        "flex flex-col gap-3 rounded-2xl border border-border bg-raised p-6 shadow-sm transition-all hover:border-accent-500 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)]",
         className,
       )}
     >
