@@ -57,6 +57,13 @@ export const meApi = {
     });
   },
 
+  updateStatus: async (status: string): Promise<{ status: string }> => {
+    return apiFetch<{ status: string }>("/users/me/status", {
+      method: "PATCH",
+      body: { status },
+    });
+  },
+
   getVerificationStatus: async (): Promise<VerificationStatus> => {
     return apiFetch<VerificationStatus>("/users/me/verification");
   },

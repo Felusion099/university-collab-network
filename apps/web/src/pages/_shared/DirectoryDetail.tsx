@@ -13,6 +13,7 @@ const ROLE_LIST_ROUTE: Record<UserRole, string> = {
   student: "/students",
   professor: "/professors",
   researcher: "/researchers",
+  professional: "/students",
   club_rep: "/students",
   startup_member: "/students",
   alumni: "/students",

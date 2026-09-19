@@ -241,7 +241,10 @@ function toAuthenticatedUser(user: User): AuthenticatedUser {
 function buildRoleProfileCreateData(
   requestedRole: RequestedRole,
   fullName: string,
-): Pick<Prisma.UserCreateInput, "studentProfile" | "professorProfile" | "researcherProfile"> {
+): Pick<
+  Prisma.UserCreateInput,
+  "studentProfile" | "professorProfile" | "researcherProfile" | "professionalProfile"
+> {
   switch (requestedRole) {
     case "student":
     case "alumni":
@@ -252,6 +255,8 @@ function buildRoleProfileCreateData(
       return {
         researcherProfile: { create: { fullName, researcherType: "research_assistant" } },
       };
+    case "professional":
+      return { professionalProfile: { create: { fullName } } };
     case "club_rep":
     case "startup_member":
       return {};

@@ -25,6 +25,11 @@ model User {
   isUniversityVerified       Boolean                   @default(false) @map("is_university_verified")
   universityDomain           String?                   @map("university_domain")
   avatarUrl                  String?                   @map("avatar_url")
+  /// GOALS (shared onboarding step) — what the user wants right now.
+  /// Distinct from INTERESTS (user_research_topics) and SKILLS
+  /// (user_skills): goals drive discovery, not identity. jsonb array of
+  /// GoalsEnum values, validated at the Zod/service layer.
+  goals                      Json?                     @map("goals")
   /// New-user onboarding completion marker (NULL = onboarding not yet
   /// completed). A single nullable timestamp — deliberately NOT an enum or
   /// separate state machine: profile rows always exist post-signup (created
@@ -60,6 +65,7 @@ model User {
   researchTeamsLed           ResearchTeam[]            @relation("ResearchTeamPI")
   researcherProfile          ResearcherProfile?
   studentProfile             StudentProfile?
+  professionalProfile        ProfessionalProfile?  @relation("ProfessionalProfile")
   userResearchTopics         UserResearchTopic[]
   userSkills                 UserSkill[]
   verificationsReviewed      Verification[]            @relation("VerificationReviewer")
@@ -135,6 +141,7 @@ model StudentProfile {
 model ProfessorProfile {
   userId              String                   @id @map("user_id") @db.Uuid
   fullName            String                   @map("full_name")
+  institution         String?                  @map("institution")
   department          String?
   designation         String?
   expertise           String[]                 @default([])
@@ -155,6 +162,10 @@ model ResearcherProfile {
   userId              String                   @id @map("user_id") @db.Uuid
   fullName            String                   @map("full_name")
   researcherType      ResearcherType           @map("researcher_type")
+  institution         String?                  @map("institution")
+  /// Structured research areas (spec §17 required) — searchable via the
+  /// same string-array pattern as ProfessorProfile.expertise.
+  researchAreas       String[]                 @default([]) @map("research_areas")
   department          String?
   bio                 String?
   currentAvailability Boolean                  @default(true) @map("current_availability")
@@ -166,6 +177,23 @@ model ResearcherProfile {
 
   @@index([search_vector], type: Gin)
   @@map("researcher_profiles")
+}
+
+model ProfessionalProfile {
+  userId           String   @id @map("user_id") @db.Uuid
+  fullName         String   @map("full_name")
+  organization     String?  @map("organization")
+  jobTitle         String?  @map("job_title")
+  professionalArea String?  @map("professional_area")
+  specialization   String?
+  bio              String?
+  isSeed           Boolean  @default(false) @map("is_seed")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  user             User     @relation("ProfessionalProfile", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("professional_profiles")
 }
 
 model PrivacySettings {
@@ -741,6 +769,7 @@ enum UserRole {
   student
   professor
   researcher
+  professional
   club_rep
   startup_member
   alumni

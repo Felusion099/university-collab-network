@@ -13,6 +13,36 @@ export const LookingForOptionEnum = z.enum([
 ]);
 export type LookingForOption = z.infer<typeof LookingForOptionEnum>;
 
+// GOALS — shared onboarding step (spec §24). GOALS ≠ INTERESTS ≠ SKILLS:
+// goals answer "what do I want right now" and drive discovery.
+export const GoalsEnum = z.enum([
+  "find_collaborators",
+  "join_projects",
+  "research_opportunities",
+  "find_mentors",
+  "find_cofounders",
+  "internships",
+  "build_team",
+  "share_work",
+  "startup_opportunities",
+  "connect_people",
+]);
+export type Goal = z.infer<typeof GoalsEnum>;
+
+// Academic titles for the Faculty branch (spec §15) — structured options
+// persisted to ProfessorProfile.designation.
+export const AcademicTitleEnum = z.enum([
+  "professor",
+  "associate_professor",
+  "assistant_professor",
+  "lecturer",
+  "visiting_faculty",
+  "adjunct_faculty",
+  "teaching_faculty",
+  "other",
+]);
+export type AcademicTitle = z.infer<typeof AcademicTitleEnum>;
+
 export const ResearcherTypeEnum = z.enum([
   "phd",
   "postdoc",
@@ -21,6 +51,17 @@ export const ResearcherTypeEnum = z.enum([
   "faculty",
 ]);
 export type ResearcherType = z.infer<typeof ResearcherTypeEnum>;
+
+export const ProfessionalProfileSchema = z.object({
+  userId: z.string().uuid(),
+  fullName: z.string(),
+  organization: z.string().nullable().optional(),
+  jobTitle: z.string().nullable().optional(),
+  professionalArea: z.string().nullable().optional(),
+  specialization: z.string().nullable().optional(),
+  bio: z.string().nullable().optional(),
+});
+export type ProfessionalProfile = z.infer<typeof ProfessionalProfileSchema>;
 
 // Privacy Settings
 export const PrivacySettingsSchema = z.object({
@@ -145,6 +186,7 @@ export type StudentProfile = z.infer<typeof StudentProfileSchema>;
 export const ProfessorProfileSchema = z.object({
   userId: z.string().uuid(),
   fullName: z.string(),
+  institution: z.string().nullable().optional(),
   department: z.string().nullable().optional(),
   designation: z.string().nullable().optional(),
   expertise: z.array(z.string()).default([]),
@@ -157,6 +199,8 @@ export type ProfessorProfile = z.infer<typeof ProfessorProfileSchema>;
 export const ResearcherProfileSchema = z.object({
   userId: z.string().uuid(),
   fullName: z.string(),
+  institution: z.string().nullable().optional(),
+  researchAreas: z.array(z.string()).nullable().optional(),
   researcherType: ResearcherTypeEnum.optional(),
   department: z.string().nullable().optional(),
   bio: z.string().nullable().optional(),
@@ -176,6 +220,8 @@ export const UserProfileResponseSchema = z.object({
   studentProfile: StudentProfileSchema.nullable().optional(),
   professorProfile: ProfessorProfileSchema.nullable().optional(),
   researcherProfile: ResearcherProfileSchema.nullable().optional(),
+  professionalProfile: ProfessionalProfileSchema.nullable().optional(),
+  goals: z.array(GoalsEnum).nullable().optional(),
   privacySettings: PrivacySettingsSchema.optional(),
   createdAt: z.string().datetime(),
   // Composed portfolio view — derived server-side from existing entity
@@ -195,5 +241,7 @@ export const UpdateProfileRequestSchema = z.object({
   studentProfile: StudentProfileSchema.omit({ userId: true }).partial().optional(),
   professorProfile: ProfessorProfileSchema.omit({ userId: true }).partial().optional(),
   researcherProfile: ResearcherProfileSchema.omit({ userId: true }).partial().optional(),
+  professionalProfile: ProfessionalProfileSchema.omit({ userId: true }).partial().optional(),
+  goals: z.array(GoalsEnum).optional(),
 });
 export type UpdateProfileRequest = z.infer<typeof UpdateProfileRequestSchema>;

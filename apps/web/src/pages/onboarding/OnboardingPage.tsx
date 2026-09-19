@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Check, ChevronRight, SkipForward, Sparkles, X } from "lucide-react";
-import type { UserRole, UserProfileResponse } from "@app/shared-types";
+import { ArrowLeft, Check, ChevronRight, SkipForward, X } from "lucide-react";
+import type { UserProfileResponse } from "@app/shared-types";
 import { useMe, useCompleteOnboarding, useUpdateOwnProfile } from "@/hooks/useMe";
 import { apiFetch, ApiError } from "@/services/api/client";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -21,20 +21,29 @@ import { ErrorState } from "@/components/ui/ErrorState";
  * client-side dedupe, POST /users/me/interests with composite-PK
  * upsert).
  */
-const STEPS = ["Welcome", "About you", "Skills", "Interests", "Your work", "Preview"] as const;
+const STEPS = ["Status", "About you", "Interests", "Skills", "Goals", "Your work", "Preview"] as const;
 
 interface Draft {
+  status: string;
   bio: string;
   department: string;
   fullName: string;
   headlineFields: {
     course: string;
     year: string;
+    university: string;
     designation: string;
     expertise: string;
+    institution: string;
+    researchAreas: string;
+    organization: string;
+    jobTitle: string;
+    professionalArea: string;
+    specialization: string;
   };
   skills: string[];
   topics: { id: string; name: string; slug: string }[];
+  goals: string[];
 }
 
 export default function OnboardingPage(): JSX.Element {
@@ -57,26 +66,37 @@ export default function OnboardingPage(): JSX.Element {
     return <ErrorState title="Couldn't load your profile" onRetry={() => refetch()} />;
   }
 
-  const profile = me.studentProfile ?? me.professorProfile ?? me.researcherProfile;
+  const profile =
+    me.studentProfile ?? me.professorProfile ?? me.researcherProfile ?? me.professionalProfile;
   const fullName = profile?.fullName ?? "there";
 
   if (draft === null) {
     setDraft({
+      status: me.role,
       bio: profile?.bio ?? "",
       department:
         me.studentProfile?.department ??
         me.professorProfile?.department ??
         me.researcherProfile?.department ??
+        me.professionalProfile?.professionalArea ??
         "",
       fullName,
       headlineFields: {
         course: me.studentProfile?.course ?? "",
         year: me.studentProfile?.year !== null && me.studentProfile?.year !== undefined ? String(me.studentProfile.year) : "",
+        university: me.studentProfile?.university ?? "",
         designation: me.professorProfile?.designation ?? "",
         expertise: (me.professorProfile?.expertise ?? []).join(", "),
+        institution: me.professorProfile?.institution ?? me.researcherProfile?.institution ?? "",
+        researchAreas: (me.researcherProfile?.researchAreas ?? []).join(", "),
+        organization: me.professionalProfile?.organization ?? "",
+        jobTitle: me.professionalProfile?.jobTitle ?? "",
+        professionalArea: me.professionalProfile?.professionalArea ?? "",
+        specialization: me.professionalProfile?.specialization ?? "",
       },
       skills: (me.portfolio?.skills ?? []).map((s) => s.name),
       topics: (me.portfolio?.researchTopics ?? []).map((t) => ({ id: t.id, name: t.name, slug: t.slug })),
+      goals: me.goals ?? [],
     });
     return <div className="mx-auto max-w-xl"><Skeleton className="h-32 w-full" /></div>;
   }
@@ -109,67 +129,191 @@ export default function OnboardingPage(): JSX.Element {
         </span>
       </div>
 
-      {step === 0 && <WelcomeStep role={me.role} name={fullName} onNext={() => setStep(1)} />}
+      {step === 0 && (
+        <StatusStep
+          draft={draft}
+          setDraft={setDraft}
+          onNext={() => setStep(1)}
+          onStatusChange={() => refetch()}
+        />
+      )}
       {step === 1 && <AboutStep me={me} draft={draft} setDraft={setDraft} onNext={() => setStep(2)} />}
-      {step === 2 && <SkillsStep me={me} draft={draft} setDraft={setDraft} onNext={() => setStep(3)} />}
-      {step === 3 && <InterestsStep draft={draft} setDraft={setDraft} onNext={() => setStep(4)} />}
-      {step === 4 && <ExistingWorkStep me={me} onNext={() => setStep(5)} />}
-      {step === 5 && (
-        <PreviewStep me={me} draft={draft} onDone={() => complete.mutate(undefined, { onSuccess: () => navigate("/dashboard") })} onBack={() => setStep(4)} saving={complete.isPending} />
+      {step === 2 && <InterestsStep draft={draft} setDraft={setDraft} onNext={() => setStep(3)} />}
+      {step === 3 && <SkillsStep me={me} draft={draft} setDraft={setDraft} onNext={() => setStep(4)} />}
+      {step === 4 && <GoalsStep draft={draft} setDraft={setDraft} onNext={() => setStep(5)} />}
+      {step === 5 && <ExistingWorkStep me={me} onNext={() => setStep(6)} />}
+      {step === 6 && (
+        <PreviewStep me={me} draft={draft} onDone={() => complete.mutate(undefined, { onSuccess: () => navigate("/dashboard") })} onBack={() => setStep(5)} saving={complete.isPending} />
       )}
     </div>
   );
 }
 
 /* ============================================================
- * STEP 1 — Welcome / identity
+ * STEP 0 — STATUS (spec §13: status is identity context, NOT activities)
  * ============================================================ */
-function WelcomeStep({ role, name, onNext }: { role: UserRole; name: string; onNext: () => void }) {
+const PERSONA_OPTIONS: { value: string; label: string; description: string }[] = [
+  { value: "student", label: "Student", description: "Currently studying at a university" },
+  { value: "professor", label: "Faculty", description: "Teaching and/or research faculty" },
+  { value: "researcher", label: "Researcher", description: "Research-focused role" },
+  { value: "professional", label: "Professional", description: "Working professionally" },
+  { value: "alumni", label: "Alumni", description: "Graduated from a university" },
+];
+
+function StatusStep({
+  draft,
+  setDraft,
+  onNext,
+  onStatusChange,
+}: {
+  draft: Draft;
+  setDraft: (d: Draft) => void;
+  onNext: () => void;
+  onStatusChange: () => void;
+}): JSX.Element {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const choose = async (status: string) => {
+    setDraft({ ...draft, status });
+    if (status === draft.status) {
+      onNext();
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const { meApi } = await import("@/services/api/me");
+      await meApi.updateStatus(status);
+      onStatusChange();
+      onNext();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't save your status.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-2">
-        <Sparkles className="h-6 w-6 text-accent-600" aria-hidden="true" />
-        <h1 className="text-2xl font-semibold text-text-primary">Let's build your profile, {name}</h1>
+      <div>
+        <h1 className="text-xl font-semibold text-text-primary">What is your status?</h1>
+        <p className="mt-1 text-sm text-text-secondary">
+          This shapes your profile — you can still join projects, clubs, research, and startups
+          regardless of status.
+        </p>
       </div>
-      <p className="text-sm leading-relaxed text-text-secondary">
-        This is your university portfolio — it tells people who you are, what you know, and what
-        you're working on. Everything you join, create, or publish here shows up on it
-        automatically. You can edit all of this later.
-      </p>
-      <div className="rounded-lg border border-border bg-raised p-4 text-sm text-text-secondary">
-        <p className="mb-1 font-medium text-text-primary">As a {role}, we'll focus on:</p>
-        <ul className="list-inside list-disc space-y-1">
-          {ROLE_FOCUS[role].map((f) => (
-            <li key={f}>{f}</li>
-          ))}
-        </ul>
+      {error && <div className="rounded-md bg-danger-100 p-3 text-sm text-danger-600">{error}</div>}
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Status">
+        {PERSONA_OPTIONS.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            role="radio"
+            aria-checked={draft.status === opt.value}
+            onClick={() => void choose(opt.value)}
+            disabled={saving}
+            className={`rounded-lg border p-3 text-left transition-colors ${
+              draft.status === opt.value
+                ? "border-accent-500 bg-accent-100"
+                : "border-border bg-raised hover:bg-sunken"
+            } disabled:opacity-50`}
+          >
+            <p className="text-sm font-medium text-text-primary">{opt.label}</p>
+            <p className="mt-0.5 text-xs text-text-secondary">{opt.description}</p>
+          </button>
+        ))}
       </div>
-      <StepActions onNext={onNext} nextLabel="Get started" />
     </div>
   );
 }
 
-const ROLE_FOCUS: Record<UserRole, string[]> = {
-  student: [
-    "Your skills and interests",
-    "Projects you can contribute to",
-    "Research areas you care about",
-  ],
-  professor: [
-    "Your expertise and research",
-    "Teams and projects you lead",
-    "Mentorship availability",
-  ],
-  researcher: [
-    "Your expertise and current research",
-    "Publications and teams",
-    "Collaboration availability",
-  ],
-  alumni: ["Your background and skills", "Organizations you're part of"],
-  club_rep: ["Your organization", "Events and opportunities"],
-  startup_member: ["Your startup", "Opportunities you're hiring for"],
-  admin: ["Platform overview and administration"],
-};
+/* ============================================================
+ * STEP — GOALS (spec §24: what do I want right now — shared step)
+ * GOALS ≠ INTERESTS ≠ SKILLS
+ * ============================================================ */
+const GOAL_OPTIONS: { value: string; label: string }[] = [
+  { value: "find_collaborators", label: "Find collaborators" },
+  { value: "join_projects", label: "Join projects" },
+  { value: "research_opportunities", label: "Research opportunities" },
+  { value: "find_mentors", label: "Find mentors" },
+  { value: "find_cofounders", label: "Find co-founders" },
+  { value: "internships", label: "Internships" },
+  { value: "build_team", label: "Build a team" },
+  { value: "share_work", label: "Share my work" },
+  { value: "startup_opportunities", label: "Startup opportunities" },
+  { value: "connect_people", label: "Connect with researchers and students" },
+];
+
+function GoalsStep({
+  draft,
+  setDraft,
+  onNext,
+}: {
+  draft: Draft;
+  setDraft: (d: Draft) => void;
+  onNext: () => void;
+}): JSX.Element {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const toggle = (goal: string) => {
+    setDraft({
+      ...draft,
+      goals: draft.goals.includes(goal)
+        ? draft.goals.filter((g) => g !== goal)
+        : [...draft.goals, goal],
+    });
+  };
+
+  const save = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      const { meApi } = await import("@/services/api/me");
+      await meApi.updateProfile({ goals: draft.goals });
+      onNext();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't save your goals.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-xl font-semibold text-text-primary">What do you want right now?</h1>
+        <p className="mt-1 text-sm text-text-secondary">
+          Goals drive your discovery — what you're looking for, not who you are.
+        </p>
+      </div>
+      {error && <div className="rounded-md bg-danger-100 p-3 text-sm text-danger-600">{error}</div>}
+      <div className="flex flex-wrap gap-2">
+        {GOAL_OPTIONS.map((g) => {
+          const active = draft.goals.includes(g.value);
+          return (
+            <button
+              key={g.value}
+              type="button"
+              onClick={() => toggle(g.value)}
+              aria-pressed={active}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                active
+                  ? "bg-accent-600 text-text-onAccent"
+                  : "border border-border bg-raised text-text-primary hover:bg-sunken"
+              }`}
+            >
+              {g.label}
+            </button>
+          );
+        })}
+      </div>
+      <StepActions onNext={save} nextLabel={saving ? "Saving…" : "Continue"} onSkip={save} disabled={saving} />
+    </div>
+  );
+}
+
 
 /* ============================================================
  * STEP 2 — Basic profile (name, department, role-specific fields, bio)
@@ -200,14 +344,18 @@ function AboutStep({
         fullName: draft.fullName.trim() || undefined,
       };
       if (me.studentProfile) {
+        // Student AND Alumni both reuse StudentProfile (repository pattern)
         input.studentProfile = {
           ...roleProfile,
+          university: draft.headlineFields.university.trim() || null,
           course: draft.headlineFields.course.trim() || null,
           year: draft.headlineFields.year.trim() ? Number(draft.headlineFields.year) : null,
         };
       } else if (me.professorProfile) {
+        // Faculty branch (spec §15): institution + department + structured title
         input.professorProfile = {
           ...roleProfile,
+          institution: draft.headlineFields.institution.trim() || null,
           designation: draft.headlineFields.designation.trim() || null,
           expertise: draft.headlineFields.expertise
             .split(",")
@@ -215,7 +363,25 @@ function AboutStep({
             .filter(Boolean),
         };
       } else if (me.researcherProfile) {
-        input.researcherProfile = { ...roleProfile };
+        // Researcher branch (spec §17): institution + research areas
+        input.researcherProfile = {
+          ...roleProfile,
+          institution: draft.headlineFields.institution.trim() || null,
+          researchAreas: draft.headlineFields.researchAreas
+            .split(",")
+            .map((e) => e.trim())
+            .filter(Boolean),
+        };
+      } else if (me.professionalProfile) {
+        // Professional branch (spec §20): concise context, no résumé
+        input.professionalProfile = {
+          fullName: draft.fullName.trim() || undefined,
+          bio: draft.bio.trim() || null,
+          organization: draft.headlineFields.organization.trim() || null,
+          jobTitle: draft.headlineFields.jobTitle.trim() || null,
+          professionalArea: draft.headlineFields.professionalArea.trim() || null,
+          specialization: draft.headlineFields.specialization.trim() || null,
+        };
       }
       if (Object.keys(input).length > 0) {
         await updateProfile.mutateAsync(input);
@@ -257,6 +423,18 @@ function AboutStep({
         />
       </Field>
       {me.studentProfile && (
+        <Field label="University">
+          <input
+            type="text"
+            value={draft.headlineFields.university}
+            onChange={(e) => setDraft({ ...draft, headlineFields: { ...draft.headlineFields, university: e.target.value } })}
+            className="w-full rounded-md border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-500"
+            placeholder="e.g., Bennett University"
+            disabled={saving}
+          />
+        </Field>
+      )}
+      {me.studentProfile && (
         <div className="grid grid-cols-2 gap-3">
           <Field label="Course / degree">
             <input
@@ -283,15 +461,33 @@ function AboutStep({
       )}
       {me.professorProfile && (
         <>
-          <Field label="Designation">
+          <Field label="Institution">
             <input
               type="text"
-              value={draft.headlineFields.designation}
-              onChange={(e) => setDraft({ ...draft, headlineFields: { ...draft.headlineFields, designation: e.target.value } })}
+              value={draft.headlineFields.institution}
+              onChange={(e) => setDraft({ ...draft, headlineFields: { ...draft.headlineFields, institution: e.target.value } })}
               className="w-full rounded-md border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-500"
-              placeholder="Associate Professor"
+              placeholder="e.g., Bennett University"
               disabled={saving}
             />
+          </Field>
+          <Field label="Academic role / title">
+            <select
+              value={draft.headlineFields.designation}
+              onChange={(e) => setDraft({ ...draft, headlineFields: { ...draft.headlineFields, designation: e.target.value } })}
+              className="w-full rounded-md border border-border bg-canvas px-3 py-2 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-500"
+              disabled={saving}
+            >
+              <option value="">Select a title</option>
+              <option value="Professor">Professor</option>
+              <option value="Associate Professor">Associate Professor</option>
+              <option value="Assistant Professor">Assistant Professor</option>
+              <option value="Lecturer">Lecturer</option>
+              <option value="Visiting Faculty">Visiting Faculty</option>
+              <option value="Adjunct Faculty">Adjunct Faculty</option>
+              <option value="Teaching Faculty">Teaching Faculty</option>
+              <option value="Other">Other</option>
+            </select>
           </Field>
           <Field label="Expertise" hint="Comma-separated — students discover you through these.">
             <input
@@ -304,6 +500,54 @@ function AboutStep({
             />
           </Field>
         </>
+      )}
+      {me.researcherProfile && (
+        <>
+          <Field label="Research institution">
+            <input
+              type="text"
+              value={draft.headlineFields.institution}
+              onChange={(e) => setDraft({ ...draft, headlineFields: { ...draft.headlineFields, institution: e.target.value } })}
+              className="w-full rounded-md border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-500"
+              placeholder="e.g., IIT Delhi"
+              disabled={saving}
+            />
+          </Field>
+          <Field label="Research areas" hint="Comma-separated — your primary research domains.">
+            <input
+              type="text"
+              value={draft.headlineFields.researchAreas}
+              onChange={(e) => setDraft({ ...draft, headlineFields: { ...draft.headlineFields, researchAreas: e.target.value } })}
+              className="w-full rounded-md border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-500"
+              placeholder="e.g., Computer Vision, Robotics"
+              disabled={saving}
+            />
+          </Field>
+        </>
+      )}
+      {me.professionalProfile && (
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Organization / company">
+            <input
+              type="text"
+              value={draft.headlineFields.organization}
+              onChange={(e) => setDraft({ ...draft, headlineFields: { ...draft.headlineFields, organization: e.target.value } })}
+              className="w-full rounded-md border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-500"
+              placeholder="e.g., Acme Corp"
+              disabled={saving}
+            />
+          </Field>
+          <Field label="Job title">
+            <input
+              type="text"
+              value={draft.headlineFields.jobTitle}
+              onChange={(e) => setDraft({ ...draft, headlineFields: { ...draft.headlineFields, jobTitle: e.target.value } })}
+              className="w-full rounded-md border border-border bg-canvas px-3 py-2 text-sm text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-accent-500"
+              placeholder="e.g., Software Engineer"
+              disabled={saving}
+            />
+          </Field>
+        </div>
       )}
       <Field label="Short bio">
         <textarea

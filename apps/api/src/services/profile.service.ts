@@ -97,6 +97,8 @@ export async function getProfileByUsername(username: string, viewerId: string | 
       : null,
     professorProfile: user.professorProfile,
     researcherProfile: user.researcherProfile,
+    professionalProfile: user.professionalProfile,
+    goals: (user.goals as import("@app/shared-types").Goal[] | null) ?? null,
     createdAt: user.createdAt.toISOString(),
     portfolio: buildPortfolio(user, user.privacySettings, context),
   };
@@ -268,6 +270,8 @@ export async function getOwnProfile(userId: string) {
       : null,
     professorProfile: user.professorProfile,
     researcherProfile: user.researcherProfile,
+    professionalProfile: user.professionalProfile,
+    goals: (user.goals as import("@app/shared-types").Goal[] | null) ?? null,
     createdAt: user.createdAt.toISOString(),
     portfolio: buildPortfolio(user, user.privacySettings, context),
   };
@@ -280,6 +284,56 @@ export async function getOwnProfile(userId: string) {
  * authoritative marker (NULL = incomplete). Role comes from the existing
  * UserRole; no onboarding enum is introduced.
  */
+/**
+ * Onboarding STATUS step (spec §13): the user's academic/professional
+ * status — their primary identity CONTEXT, not their activities. Only
+ * the five persona statuses are switchable here; club_rep/startup_member
+ * remain activity-derived signup options. Server-authoritative: role
+ * changes never grant capabilities (privileged actions still require
+ * Verification per D-003).
+ */
+const PERSONA_STATUSES = ["student", "professor", "researcher", "professional", "alumni"] as const;
+
+export async function updateOwnStatus(userId: string, status: string) {
+  if (!PERSONA_STATUSES.includes(status as (typeof PERSONA_STATUSES)[number])) {
+    throw new ForbiddenError(
+      "Status can only be one of: student, faculty, researcher, professional, alumni",
+    );
+  }
+  const user = await userRepository.findByIdLean(userId);
+  if (!user) throw new NotFoundError("User not found");
+
+  const requestedRole = status as "student" | "professor" | "researcher" | "professional" | "alumni";
+
+  // Ensure the persona's profile row exists (mirrors signup behavior)
+  if (requestedRole === "student" || requestedRole === "alumni") {
+    const existing = await prisma.studentProfile.findUnique({ where: { userId } });
+    if (!existing) {
+      await prisma.studentProfile.create({ data: { userId, fullName: "" } });
+    }
+  } else if (requestedRole === "professor") {
+    const existing = await prisma.professorProfile.findUnique({ where: { userId } });
+    if (!existing) {
+      await prisma.professorProfile.create({ data: { userId, fullName: "" } });
+    }
+  } else if (requestedRole === "researcher") {
+    const existing = await prisma.researcherProfile.findUnique({ where: { userId } });
+    if (!existing) {
+      await prisma.researcherProfile.create({
+        data: { userId, fullName: "", researcherType: "research_assistant" },
+      });
+    }
+  } else if (requestedRole === "professional") {
+    const existing = await prisma.professionalProfile.findUnique({ where: { userId } });
+    if (!existing) {
+      await prisma.professionalProfile.create({ data: { userId, fullName: "" } });
+    }
+  }
+
+  await userRepository.update(userId, { requestedRole } as never);
+  return { status: requestedRole };
+}
+
 export async function getOnboardingStatus(userId: string) {
   const user = await userRepository.findByIdLean(userId);
   if (!user) throw new NotFoundError("User not found");
@@ -443,20 +497,36 @@ export async function updateOwnProfile(userId: string, input: UpdateProfileReque
     });
   }
   if (user.requestedRole === "researcher" && input.researcherProfile) {
-    const { researcherType, ...restResearcher } = input.researcherProfile;
+    const { researcherType, researchAreas, ...restResearcher } = input.researcherProfile;
+    // Zod allows nullable arrays; Prisma wants string[] | undefined
+    const areas = researchAreas ?? undefined;
     await prisma.researcherProfile.upsert({
       where: { userId },
       create: {
         userId,
         fullName: input.fullName ?? "",
         researcherType: researcherType ?? "research_assistant",
+        researchAreas: areas ?? [],
         ...restResearcher,
       },
       update: {
         ...(researcherType ? { researcherType } : {}),
+        ...(areas !== undefined ? { researchAreas: areas } : {}),
         ...restResearcher,
       },
     });
+  }
+  if (user.requestedRole === "professional" && input.professionalProfile) {
+    await prisma.professionalProfile.upsert({
+      where: { userId },
+      create: { userId, fullName: input.fullName ?? "", ...input.professionalProfile },
+      update: input.professionalProfile,
+    });
+  }
+  if (input.goals !== undefined) {
+    await userRepository.update(userId, {
+      goals: input.goals.length > 0 ? input.goals : null,
+    } as never);
   }
 
   return userRepository.findById(userId);

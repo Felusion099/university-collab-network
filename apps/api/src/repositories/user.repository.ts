@@ -9,6 +9,7 @@ export class UserRepository {
         studentProfile: true,
         professorProfile: true,
         researcherProfile: true,
+        professionalProfile: true,
         privacySettings: true,
       },
     });
@@ -31,6 +32,7 @@ export class UserRepository {
         studentProfile: true,
         professorProfile: true,
         researcherProfile: true,
+        professionalProfile: true,
         privacySettings: true,
         // Portfolio composition — real relationships only (no stored
         // portfolio rows); profile.service.ts derives the composed view
@@ -127,6 +129,7 @@ export class UserRepository {
         studentProfile: true,
         professorProfile: true,
         researcherProfile: true,
+        professionalProfile: true,
         privacySettings: true,
         projectMemberships: { include: { project: { select: { id: true, name: true, status: true, createdBy: true } } } },
         memberships: {

@@ -183,3 +183,20 @@ export async function listByRole(req: Request, res: Response, next: NextFunction
     next(err);
   }
 }
+
+// PATCH /users/me/status — onboarding STATUS step (spec §13). The user's
+// academic/professional status; only the five persona statuses are valid.
+// Never grants capabilities — privileged actions still require Verification.
+export async function updateOwnStatus(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { status } = req.body as { status: string };
+    const result = await profileService.updateOwnStatus(req.user!.id, status);
+    res.status(200).json(result);
+  } catch (err: unknown) {
+    next(err);
+  }
+}

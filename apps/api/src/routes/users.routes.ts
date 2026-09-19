@@ -15,6 +15,8 @@ router.get("/me", requireAuth, profileController.getMe);
 
 router.get("/me/onboarding", requireAuth, profileController.getOnboarding);
 
+router.patch("/me/status", requireAuth, profileController.updateOwnStatus);
+
 router.post("/me/onboarding/complete", requireAuth, profileController.completeOnboarding);
 
 router.post("/me/interests", requireAuth, profileController.addInterest);
