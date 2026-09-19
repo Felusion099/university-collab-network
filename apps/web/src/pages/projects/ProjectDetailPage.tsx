@@ -22,6 +22,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useSessionStore } from "@/stores/session.store";
 import { apiFetch, ApiError } from "@/services/api/client";
+import { relativeTime } from "@/lib/utils";
 import type { ProjectDetail } from "@/services/api/projects";
 
 /**
@@ -436,12 +437,16 @@ function ProjectRequestsSection({
               <div className="min-w-0">
                 <Link
                   to={`/students/${r.user.username}`}
-                  className="text-sm font-medium text-text-primary hover:text-accent-600"
+                  className="text-sm font-semibold text-text-primary hover:text-accent-600"
                 >
                   {r.user.username}
                 </Link>
-                <p className="text-xs text-text-muted capitalize">{r.user.requestedRole.replace("_", " ")}</p>
-                {r.message && <p className="mt-0.5 truncate text-xs text-text-secondary">"{r.message}"</p>}
+                <p className="text-xs capitalize text-text-muted">{r.user.requestedRole.replace("_", " ")} · {relativeTime(r.createdAt)}</p>
+                {r.message && (
+                  <p className="mt-2 rounded-lg border border-border bg-canvas p-3 text-xs leading-relaxed text-text-secondary">
+                    "{r.message}"
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex flex-shrink-0 gap-2">

@@ -1,6 +1,7 @@
 import { useSessionStore } from "@/stores/session.store";
 import { useFeaturedProfile, useRecentActivity } from "@/hooks/useDashboard";
 import { useQuery } from "@tanstack/react-query";
+import { useMe } from "@/hooks/useMe";
 import { meApi } from "@/services/api/me";
 import { useProjectsList } from "@/hooks/useProjects";
 import { ProfileCard } from "@/components/cards/ProfileCard";
@@ -8,7 +9,7 @@ import { ProjectCard } from "@/components/cards/ProjectCard";
 import { Timeline } from "@/components/Timeline";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Compass, Clock, ArrowRight, Search } from "lucide-react";
+import { Compass, Clock, ArrowRight, Search, Plus, FolderGit2, BookOpen, Wrench } from "lucide-react";
 import { Link } from "react-router-dom";
 import { SearchBar } from "@/components/SearchBar";
 import { useState } from "react";
@@ -32,28 +33,55 @@ export default function DashboardPage(): JSX.Element {
     : "Welcome back";
 
   return (
-    <div className="space-y-10">
-      {/* Greeting/context + search — the primary action (01 §8) */}
-      <header className="space-y-5">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-text-primary">
-            {greeting}.
-          </h1>
-          <p className="mt-1.5 text-base text-text-secondary">
-            Discover people, projects, and research you can collaborate on.
-          </p>
+    <div className="space-y-8">
+      {/* Welcome banner — C1 orientation adapted to UCN tokens: dark
+          premium, role-aware description, real action buttons */}
+      <div className="rounded-2xl bg-gradient-to-r from-ink-900 via-ink-800 to-ink-900 p-6 text-text-inverse shadow-sm sm:p-8">
+        <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-wider text-ink-400">
+              Campus Workspace & Hub
+            </p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
+              Welcome back, {greeting}
+            </h1>
+            <p className="mt-1 max-w-xl text-xs leading-relaxed text-ink-300 sm:text-sm">
+              {ROLE_WELCOME[user?.role ?? "student"]}
+            </p>
+          </div>
+          <div className="flex flex-shrink-0 flex-wrap gap-2">
+            <Link
+              to="/projects"
+              className="flex items-center gap-1.5 rounded-xl bg-raised px-4 py-2 text-xs font-semibold text-text-primary shadow-sm transition-colors hover:bg-sunken"
+            >
+              <Plus className="h-4 w-4" />
+              Post New Project
+            </Link>
+            <Link
+              to="/me"
+              className="flex items-center gap-1.5 rounded-xl border border-ink-700 bg-ink-800 px-4 py-2 text-xs font-semibold text-text-primary transition-colors hover:bg-ink-700"
+            >
+              <FolderGit2 className="h-4 w-4" />
+              Add Work
+            </Link>
+          </div>
         </div>
-        <div className="relative">
-          <SearchBar value={query} onChange={setQuery} />
-          <Link
-            to={`/discover${query ? `?q=${encodeURIComponent(query)}` : ""}`}
-            className="absolute right-2 top-1/2 hidden -translate-y-1/2 items-center gap-1 rounded-md bg-accent-600 px-3 py-1.5 text-sm font-medium text-text-onAccent hover:bg-accent-700 sm:inline-flex"
-          >
-            <Search className="h-3.5 w-3.5" aria-hidden="true" />
-            Search
-          </Link>
-        </div>
-      </header>
+      </div>
+
+      {/* Universal search — the primary discovery action */}
+      <div className="relative">
+        <SearchBar value={query} onChange={setQuery} />
+        <Link
+          to={`/discover${query ? `?q=${encodeURIComponent(query)}` : ""}`}
+          className="absolute right-2 top-1/2 hidden -translate-y-1/2 items-center gap-1 rounded-md bg-accent-600 px-3 py-1.5 text-sm font-medium text-text-onAccent hover:bg-accent-700 sm:inline-flex"
+        >
+          <Search className="h-3.5 w-3.5" aria-hidden="true" />
+          Search
+        </Link>
+      </div>
+
+      {/* Metric cards — REAL relationship counts, actionable (not vanity) */}
+      <DashboardMetrics />
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <section className="space-y-8 lg:col-span-2">
@@ -108,6 +136,66 @@ export default function DashboardPage(): JSX.Element {
   );
 }
 
+
+const ROLE_WELCOME: Record<string, string> = {
+  student: "Track your project applications, peer collaboration invitations, and active campus projects.",
+  professor: "Manage your research openings, student applications, and faculty collaborations.",
+  researcher: "Track your research collaborations, team invitations, and active work.",
+  professional: "Track your collaborations, project invitations, and professional network.",
+  alumni: "Reconnect with your university network and track your collaborations.",
+  club_rep: "Administer your club notices, events, and member collaborations.",
+  startup_member: "Track your startup collaborations, hiring, and active projects.",
+  admin: "Administer campus notices, verification requests, and platform moderation.",
+};
+
+/** Metric cards — REAL relationship counts from the composed portfolio +
+ * pending requests. Actionable links, not vanity metrics. */
+function DashboardMetrics(): JSX.Element {
+  const { data: me, isLoading } = useMe();
+  const { data: pending, isLoading: pendingLoading } = usePendingJoinRequests();
+
+  const projects = (me?.portfolio?.projects ?? []).length;
+  const skills = (me?.portfolio?.skills ?? []).length;
+  const research = (me?.portfolio?.researchTopics ?? []).length;
+  const invites = (pending?.data ?? []).length;
+
+  if (isLoading || pendingLoading) {
+    return (
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <Skeleton className="h-24 rounded-xl" />
+        <Skeleton className="h-24 rounded-xl" />
+        <Skeleton className="h-24 rounded-xl" />
+        <Skeleton className="h-24 rounded-xl" />
+      </div>
+    );
+  }
+
+  const cards = [
+    { label: "Active Projects", value: projects, sub: "Leading & member", to: "/my-projects", icon: FolderGit2 },
+    { label: "Pending Invites", value: invites, sub: "Awaiting response", to: "/my-projects", icon: Clock },
+    { label: "Skills", value: skills, sub: "Your capabilities", to: "/me", icon: Wrench },
+    { label: "Research Interests", value: research, sub: "Topics you follow", to: "/me", icon: BookOpen },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      {cards.map(({ label, value, sub, to, icon: Icon }) => (
+        <Link
+          key={label}
+          to={to}
+          className="rounded-xl border border-border bg-raised p-5 shadow-sm transition-colors hover:border-accent-500"
+        >
+          <div className="flex items-center gap-1.5 text-xs font-medium text-text-muted">
+            <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+            {label}
+          </div>
+          <div className="mt-1 text-2xl font-bold text-text-primary">{value}</div>
+          <div className="mt-0.5 text-[11px] text-text-muted">{sub}</div>
+        </Link>
+      ))}
+    </div>
+  );
+}
 
 function usePendingJoinRequests() {
   return useQuery({
