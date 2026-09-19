@@ -36,7 +36,7 @@ export default function MyPortfolioPage(): JSX.Element {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-text-primary">My Portfolio</h1>
+          <h1 className="text-3xl font-semibold tracking-tight text-text-primary">My Portfolio</h1>
           <p className="mt-1 text-sm text-text-secondary">
             A living view of your work — it updates automatically as you use the platform.
           </p>

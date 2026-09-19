@@ -96,9 +96,11 @@ export default function ProjectDetailPage(): JSX.Element {
                 />
               )}
               <div className="min-w-0">
-                <h1 className="text-xl font-semibold text-text-primary">{project.name}</h1>
+                <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
+                  {project.name}
+                </h1>
                 {project.description && (
-                  <p className="mt-0.5 text-sm text-text-secondary">{project.description}</p>
+                  <p className="mt-1 text-base text-text-secondary">{project.description}</p>
                 )}
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-text-secondary">
                   <span className="rounded-full bg-sunken px-2.5 py-0.5 text-xs font-medium capitalize text-text-secondary">
@@ -184,13 +186,49 @@ export default function ProjectDetailPage(): JSX.Element {
               </section>
             )}
 
+            {/* OPEN ROLES — explicit (UPWORK team page pattern) */}
+            {project.skillsNeeded.length > 0 &&
+              project.status !== "completed" &&
+              project.status !== "archived" && (
+                <section>
+                  <div className="mb-2 flex items-center justify-between">
+                    <h2 className="text-xl font-semibold tracking-tight text-text-primary">
+                      Open roles
+                    </h2>
+                    <span className="rounded-full bg-success-100 px-2.5 py-0.5 text-xs font-medium text-success-600">
+                      Recruiting
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {project.skillsNeeded.map(({ skill, role }) => (
+                      <div
+                        key={skill}
+                        className="rounded-lg border border-border bg-raised px-3 py-2"
+                      >
+                        <p className="text-sm font-medium text-text-primary">{skill}</p>
+                        <p className="text-xs capitalize text-text-muted">{role}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {!isCreator && !isMember && joinState !== "pending" && (
+                    <button
+                      type="button"
+                      onClick={requestToJoin}
+                      className="mt-3 rounded-md bg-accent-600 px-4 py-2 text-sm font-medium text-text-onAccent hover:bg-accent-700"
+                    >
+                      Join Project
+                    </button>
+                  )}
+                </section>
+              )}
+
             {/* SKILLS & TECHNOLOGIES */}
             {project.skillsNeeded.length > 0 && (
               <section>
-                <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-text-muted">
+                <h2 className="text-xl font-semibold tracking-tight text-text-primary">
                   Skills & technologies
                 </h2>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="mt-2 flex flex-wrap gap-1.5">
                   {project.skillsNeeded.map(({ skill, role }) => (
                     <SkillBadge key={skill} skill={`${skill} (${role})`} />
                   ))}

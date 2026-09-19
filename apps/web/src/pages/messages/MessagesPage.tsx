@@ -69,7 +69,7 @@ export default function MessagesPage(): JSX.Element {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-semibold text-text-primary">Messages</h1>
+          <h1 className="text-3xl font-semibold tracking-tight text-text-primary">Messages</h1>
           {!connected && activeId && (
             <span className="flex items-center gap-1.5 rounded-full bg-warning-100 px-2.5 py-0.5 text-xs font-medium text-warning-600">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-warning-600" />

@@ -47,7 +47,7 @@ export default function NotificationsPage(): JSX.Element {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-text-primary">Notifications</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-text-primary">Notifications</h1>
         {unreadCount > 0 && (
           <button
             type="button"

@@ -57,16 +57,22 @@ export function UserCard({
           </div>
         )}
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <p className="truncate font-medium text-text-primary">{user.fullName}</p>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <p className="truncate font-semibold text-text-primary">{user.fullName}</p>
             <VerificationBadge verified={user.isUniversityVerified} />
           </div>
-          {user.headline && <p className="truncate text-sm text-text-secondary">{user.headline}</p>}
+          {/* MALT hierarchy: role/department context under the name — quiet
+              metadata, name carries the scan */}
+          <p className="truncate text-xs capitalize text-text-muted">
+            {user.role.replace("_", " ")}
+            {user.department ? ` · ${user.department}` : ""}
+          </p>
+          {user.headline && <p className="line-clamp-2 text-sm text-text-secondary">{user.headline}</p>}
         </div>
       </div>
       {user.topSkills.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {user.topSkills.slice(0, 4).map((skill) => (
+          {user.topSkills.slice(0, 3).map((skill) => (
             <SkillBadge key={skill} skill={skill} />
           ))}
         </div>

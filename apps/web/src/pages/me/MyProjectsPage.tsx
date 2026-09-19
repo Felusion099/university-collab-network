@@ -43,7 +43,7 @@ export default function MyProjectsPage(): JSX.Element {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold text-text-primary">My Projects</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-text-primary">My Projects</h1>
         <p className="mt-1 text-sm text-text-secondary">
           Everything you lead, contribute to, or have requested to join.
         </p>
