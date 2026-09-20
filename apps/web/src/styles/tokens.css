@@ -2,38 +2,36 @@
  * Every component consumes these as CSS variables / Tailwind theme values —
  * never hardcode hex/px values directly in components.
  *
- * Palette rationale: a university collaboration network spans a lot of
- * disciplines and roles (students, faculty, researchers, startups), so the
- * palette leans on ink/slate neutrals — steady, legible, not trend-driven —
- * with a single warm accent (amber/brass) used sparingly for the things
- * that matter most (primary actions, verification, active state). Avoids
- * both the "warm cream + terracotta" and "near-black + acid accent" defaults.
+ * Palette rationale (v2 — C1-inspired warm professional): warm zinc/stone
+ * neutrals on white raised surfaces, a brighter brass/amber accent for
+ * primary actions (matches the campus identity), and emerald for
+ * trust/availability signals. Calm, premium, information-rich.
  */
 
 :root {
-  /* Base neutrals (ink/slate scale) */
-  --color-ink-950: #0f1419;
-  --color-ink-900: #171d26;
-  --color-ink-800: #232b38;
-  --color-ink-700: #333e4f;
-  --color-ink-600: #4a5568;
-  --color-ink-500: #6b7789;
-  --color-ink-400: #94a1b3;
-  --color-ink-300: #c1cad6;
-  --color-ink-200: #dfe4ea;
-  --color-ink-100: #eef1f5;
-  --color-ink-50: #f7f8fa;
+  /* Base neutrals — warm zinc/stone (C1-inspired warm professional) */
+  --color-ink-950: #101014;
+  --color-ink-900: #18181f;
+  --color-ink-800: #26262e;
+  --color-ink-700: #3a3a44;
+  --color-ink-600: #52525e;
+  --color-ink-500: #71717e;
+  --color-ink-400: #a1a1ae;
+  --color-ink-300: #d4d4dc;
+  --color-ink-200: #e8e8ee;
+  --color-ink-100: #f4f4f6;
+  --color-ink-50: #fafafa;
 
-  /* Accent — brass/amber, used for primary actions & emphasis only */
-  --color-accent-700: #92600a;
-  --color-accent-600: #b3790f;
-  --color-accent-500: #d99b2b;
-  --color-accent-400: #e8b558;
-  --color-accent-100: #faedd2;
+  /* Accent — bright brass/amber (campus identity, primary actions only) */
+  --color-accent-700: #b45309;
+  --color-accent-600: #d97706;
+  --color-accent-500: #f59e0b;
+  --color-accent-400: #fbbf24;
+  --color-accent-100: #fef3c7;
 
-  /* Semantic status colors */
-  --color-success-600: #1a7f4e;
-  --color-success-100: #dcf3e6;
+  /* Semantic status colors — emerald trust/availability */
+  --color-success-600: #059669;
+  --color-success-100: #d1fae5;
   --color-warning-600: #b3760f;
   --color-warning-100: #fbecd0;
   --color-danger-600: #c23b3b;

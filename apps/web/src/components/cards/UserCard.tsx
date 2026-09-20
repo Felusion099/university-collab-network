@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, ShieldCheck } from "lucide-react";
 import type { DirectoryUserSummary } from "@/services/api/directory";
 import { SkillBadge, VerificationBadge } from "@/components/ui/Badge";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -70,11 +70,23 @@ export function UserCard({
           {user.headline && <p className="line-clamp-2 text-sm text-text-secondary">{user.headline}</p>}
         </div>
       </div>
+      {/* Trust + availability pills (C1 pattern, real data) */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2.5 py-0.5 text-[11px] font-semibold text-success-600">
+          <ShieldCheck className="h-3 w-3" aria-hidden="true" />
+          Verified {user.role.replace("_", " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+        </span>
+      </div>
       {user.topSkills.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {user.topSkills.slice(0, 3).map((skill) => (
             <SkillBadge key={skill} skill={skill} />
           ))}
+          {user.topSkills.length > 3 && (
+            <span className="rounded-lg bg-sunken px-2 py-0.5 text-[11px] font-medium text-text-secondary">
+              +{user.topSkills.length - 3} more
+            </span>
+          )}
         </div>
       )}
     </Link>
