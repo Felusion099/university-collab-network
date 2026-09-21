@@ -1,0 +1,12 @@
+{
+  "name": "@app/config",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Shared ESLint, TypeScript, and Prettier base configs. Config-only package — consumers already carry eslint/typescript/prettier as devDependencies via the workspace root.",
+  "exports": {
+    "./eslint/base": "./eslint/base.js",
+    "./typescript/base": "./typescript/base.json",
+    "./prettier": "./prettier/index.js"
+  }
+}

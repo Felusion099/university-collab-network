@@ -1,0 +1,1067 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                         String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                      String                    @unique
+  /// Added per DECISIONS.md D-013 — API_CONTRACT.md §2's `GET /users/:username`
+  /// had no backing column. Server-generated at signup (email local-part,
+  /// de-duplicated), never user-chosen in this MVP pass.
+  username                   String                    @unique
+  /// Added per DECISIONS.md D-018 — PROJECT_SPEC.md §7 lists `phone` as its
+  /// own independently-settable privacy field (distinct from `contact info`),
+  /// and `privacy_settings.phone_visibility` already existed to gate it, but
+  /// no `phone` data column existed anywhere for that toggle to apply to.
+  phone                      String?
+  passwordHash               String                    @map("password_hash")
+  requestedRole              UserRole                  @map("requested_role")
+  status                     UserStatus                @default(pending_verification)
+  isUniversityVerified       Boolean                   @default(false) @map("is_university_verified")
+  universityDomain           String?                   @map("university_domain")
+  avatarUrl                  String?                   @map("avatar_url")
+  /// GOALS (shared onboarding step) — what the user wants right now.
+  /// Distinct from INTERESTS (user_research_topics) and SKILLS
+  /// (user_skills): goals drive discovery, not identity. jsonb array of
+  /// GoalsEnum values, validated at the Zod/service layer.
+  goals                      Json?                     @map("goals")
+  /// New-user onboarding completion marker (NULL = onboarding not yet
+  /// completed). A single nullable timestamp — deliberately NOT an enum or
+  /// separate state machine: profile rows always exist post-signup (created
+  /// in auth.service.ts#signup) and UserStatus has no onboarding semantics,
+  /// so no existing field could represent "onboarding incomplete" without a
+  /// fragile data heuristic. See DECISIONS.md (onboarding-state decision).
+  onboardingCompletedAt      DateTime?                 @map("onboarding_completed_at")
+  isSeed                     Boolean                   @default(false) @map("is_seed")
+  createdAt                  DateTime                  @default(now()) @map("created_at")
+  updatedAt                  DateTime                  @updatedAt @map("updated_at")
+  applications               Application[]
+  connectionsReceived        Connection[]              @relation("ConnectionAddressee")
+  connectionsSent            Connection[]              @relation("ConnectionRequester")
+  conversationParticipations ConversationParticipant[]
+  eventParticipations        EventParticipant[]
+  followedBy                 Follow[]                  @relation("Followee")
+  following                  Follow[]                  @relation("Follower")
+  memberships                Membership[]
+  messagesSent               Message[]
+  notificationPreferences    NotificationPreferences?
+  notifications              Notification[]
+  organizationsCreated       Organization[]            @relation("OrganizationCreatedBy")
+  organizationsAdvised       Organization[]            @relation("OrganizationFacultyAdvisor")
+  privacySettings            PrivacySettings?
+  professorProfile           ProfessorProfile?
+  projectMemberships         ProjectMember[]
+  projectsCreated            Project[]                 @relation("ProjectCreatedBy")
+  publicationAuthorships     PublicationAuthor[]
+  refreshTokens              RefreshToken[]
+  reportsFiled               Report[]                  @relation("ReportReporter")
+  reportsReviewed            Report[]                  @relation("ReportReviewedBy")
+  researchTeamsCreated       ResearchTeam[]            @relation("ResearchTeamCreatedBy")
+  researchTeamsLed           ResearchTeam[]            @relation("ResearchTeamPI")
+  researcherProfile          ResearcherProfile?
+  studentProfile             StudentProfile?
+  professionalProfile        ProfessionalProfile?  @relation("ProfessionalProfile")
+  userResearchTopics         UserResearchTopic[]
+  userSkills                 UserSkill[]
+  verificationsReviewed      Verification[]            @relation("VerificationReviewer")
+  verificationsClaimed       Verification[]            @relation("VerificationSubject")
+  joinRequests               JoinRequest[]
+  groupsOwned                Group[]                   @relation("GroupOwner")
+  groupMemberships           GroupMember[]             @relation("GroupMemberships")
+  groupInviteLinksCreated    GroupInviteLink[]         @relation("GroupInviteLinkCreator")
+
+  @@index([status])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  isSeed    Boolean   @default(false) @map("is_seed")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Verification {
+  id          String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String                @map("user_id") @db.Uuid
+  roleClaimed VerificationRoleClaim @map("role_claimed")
+  status      VerificationStatus    @default(pending)
+  reviewedBy  String?               @map("reviewed_by") @db.Uuid
+  evidenceUrl String?               @map("evidence_url")
+  isSeed      Boolean               @default(false) @map("is_seed")
+  createdAt   DateTime              @default(now()) @map("created_at")
+  updatedAt   DateTime              @updatedAt @map("updated_at")
+  reviewer    User?                 @relation("VerificationReviewer", fields: [reviewedBy], references: [id])
+  user        User                  @relation("VerificationSubject", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleClaimed])
+  @@index([userId])
+  @@index([reviewedBy])
+  @@map("verifications")
+}
+
+model StudentProfile {
+  userId        String                   @id @map("user_id") @db.Uuid
+  fullName      String                   @map("full_name")
+  department    String?
+  course        String?
+  year          Int?
+  university    String?
+  bio           String?
+  cgpa          Decimal?                 @db.Decimal(3, 2)
+  githubUrl     String?                  @map("github_url")
+  linkedinUrl   String?                  @map("linkedin_url")
+  portfolioUrl  String?                  @map("portfolio_url")
+  /// jsonb array of: teammates|research|internship|mentoring|networking
+  /// (validated at the Zod/service layer, per DATABASE_SCHEMA.md's jsonb typing).
+  lookingFor    Json?                    @map("looking_for")
+  isSeed        Boolean                  @default(false) @map("is_seed")
+  createdAt     DateTime                 @default(now()) @map("created_at")
+  updatedAt     DateTime                 @updatedAt @map("updated_at")
+  search_vector Unsupported("tsvector")? @default(dbgenerated("to_tsvector('english'::regconfig, COALESCE(bio, ''::text))"))
+  user          User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([search_vector], type: Gin)
+  @@map("student_profiles")
+}
+
+model ProfessorProfile {
+  userId              String                   @id @map("user_id") @db.Uuid
+  fullName            String                   @map("full_name")
+  institution         String?                  @map("institution")
+  department          String?
+  designation         String?
+  expertise           String[]                 @default([])
+  bio                 String?
+  officeContact       String?                  @map("office_contact")
+  mentorshipAvailable Boolean                  @default(false) @map("mentorship_available")
+  isSeed              Boolean                  @default(false) @map("is_seed")
+  createdAt           DateTime                 @default(now()) @map("created_at")
+  updatedAt           DateTime                 @updatedAt @map("updated_at")
+  search_vector       Unsupported("tsvector")? @default(dbgenerated("to_tsvector('english'::regconfig, ((COALESCE(bio, ''::text) || ' '::text) || immutable_array_to_string(expertise, ' '::text)))"))
+  user                User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([search_vector], type: Gin)
+  @@map("professor_profiles")
+}
+
+model ResearcherProfile {
+  userId              String                   @id @map("user_id") @db.Uuid
+  fullName            String                   @map("full_name")
+  researcherType      ResearcherType           @map("researcher_type")
+  institution         String?                  @map("institution")
+  /// Structured research areas (spec §17 required) — searchable via the
+  /// same string-array pattern as ProfessorProfile.expertise.
+  researchAreas       String[]                 @default([]) @map("research_areas")
+  department          String?
+  bio                 String?
+  currentAvailability Boolean                  @default(true) @map("current_availability")
+  isSeed              Boolean                  @default(false) @map("is_seed")
+  createdAt           DateTime                 @default(now()) @map("created_at")
+  updatedAt           DateTime                 @updatedAt @map("updated_at")
+  search_vector       Unsupported("tsvector")? @default(dbgenerated("to_tsvector('english'::regconfig, COALESCE(bio, ''::text))"))
+  user                User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([search_vector], type: Gin)
+  @@map("researcher_profiles")
+}
+
+model ProfessionalProfile {
+  userId           String   @id @map("user_id") @db.Uuid
+  fullName         String   @map("full_name")
+  organization     String?  @map("organization")
+  jobTitle         String?  @map("job_title")
+  professionalArea String?  @map("professional_area")
+  specialization   String?
+  bio              String?
+  isSeed           Boolean  @default(false) @map("is_seed")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  user             User     @relation("ProfessionalProfile", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("professional_profiles")
+}
+
+model PrivacySettings {
+  userId                String     @id @map("user_id") @db.Uuid
+  profileVisibility     Visibility @default(university_only) @map("profile_visibility")
+  emailVisibility       Visibility @default(connections_only) @map("email_visibility")
+  phoneVisibility       Visibility @default(connections_only) @map("phone_visibility")
+  academicVisibility    Visibility @default(university_only) @map("academic_visibility")
+  cgpaVisibility        Visibility @default(private) @map("cgpa_visibility")
+  projectsVisibility    Visibility @default(public) @map("projects_visibility")
+  researchVisibility    Visibility @default(public) @map("research_visibility")
+  socialLinksVisibility Visibility @default(university_only) @map("social_links_visibility")
+  connectionsVisibility Visibility @default(connections_only) @map("connections_visibility")
+  activityVisibility    Visibility @default(connections_only) @map("activity_visibility")
+  contactVisibility     Visibility @default(connections_only) @map("contact_visibility")
+  isSeed                Boolean    @default(false) @map("is_seed")
+  createdAt             DateTime   @default(now()) @map("created_at")
+  updatedAt             DateTime   @updatedAt @map("updated_at")
+  user                  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("privacy_settings")
+}
+
+model Organization {
+  id               String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type             OrganizationType
+  name             String
+  slug             String                   @unique
+  logoUrl          String?                  @map("logo_url")
+  description      String?
+  category         String?
+  facultyAdvisorId String?                  @map("faculty_advisor_id") @db.Uuid
+  createdBy        String                   @map("created_by") @db.Uuid
+  isSeed           Boolean                  @default(false) @map("is_seed")
+  createdAt        DateTime                 @default(now()) @map("created_at")
+  updatedAt        DateTime                 @updatedAt @map("updated_at")
+  search_vector    Unsupported("tsvector")? @default(dbgenerated("to_tsvector('english'::regconfig, ((COALESCE(name, ''::text) || ' '::text) || COALESCE(description, ''::text)))"))
+  conversations    Conversation[]
+  events           Event[]
+  memberships      Membership[]
+  opportunities    Opportunity[]
+  creator          User                     @relation("OrganizationCreatedBy", fields: [createdBy], references: [id])
+  facultyAdvisor   User?                    @relation("OrganizationFacultyAdvisor", fields: [facultyAdvisorId], references: [id])
+  startupDetails   StartupDetails?
+
+  @@index([facultyAdvisorId])
+  @@index([createdBy])
+  @@index([search_vector], type: Gin)
+  @@map("organizations")
+}
+
+/// 1:1 extension, only populated when organizations.type = startup.
+model StartupDetails {
+  organizationId String       @id @map("organization_id") @db.Uuid
+  industry       String?
+  stage          String?
+  websiteUrl     String?      @map("website_url")
+  hiring         Boolean      @default(false)
+  isSeed         Boolean      @default(false) @map("is_seed")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("startup_details")
+}
+
+/// Generic join: user <-> organization/research_team. Replaces separate
+/// "club member" / "team member" tables per DATABASE_SCHEMA.md.
+/// Constraint "exactly one of organization_id/research_team_id non-null" is
+/// enforced via a raw-SQL CHECK constraint added in the migration (Prisma's
+/// schema language has no native CHECK-constraint syntax) — see migration.sql.
+model Membership {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String         @map("user_id") @db.Uuid
+  organizationId String?        @map("organization_id") @db.Uuid
+  researchTeamId String?        @map("research_team_id") @db.Uuid
+  role           MembershipRole @default(member)
+  joinedAt       DateTime       @default(now()) @map("joined_at")
+  isSeed         Boolean        @default(false) @map("is_seed")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+  organization   Organization?  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  researchTeam   ResearchTeam?  @relation(fields: [researchTeamId], references: [id], onDelete: Cascade)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([researchTeamId])
+  @@map("memberships")
+}
+
+model ResearchTopic {
+  id                 String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name               String                   @unique
+  slug               String                   @unique
+  description        String?
+  parentTopicId      String?                  @map("parent_topic_id") @db.Uuid
+  isSeed             Boolean                  @default(false) @map("is_seed")
+  createdAt          DateTime                 @default(now()) @map("created_at")
+  updatedAt          DateTime                 @updatedAt @map("updated_at")
+  search_vector      Unsupported("tsvector")? @default(dbgenerated("to_tsvector('english'::regconfig, ((COALESCE(name, ''::text) || ' '::text) || COALESCE(description, ''::text)))"))
+  opportunities      Opportunity[]
+  projectTopics      ProjectTopic[]
+  publicationTopics  PublicationTopic[]
+  researchTeamTopics ResearchTeamTopic[]
+  parentTopic        ResearchTopic?           @relation("ResearchTopicParent", fields: [parentTopicId], references: [id])
+  childTopics        ResearchTopic[]          @relation("ResearchTopicParent")
+  userResearchTopics UserResearchTopic[]
+
+  @@index([parentTopicId])
+  @@index([search_vector], type: Gin)
+  @@map("research_topics")
+}
+
+model ResearchTeam {
+  id                 String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name               String
+  description        String?
+  piUserId           String              @map("pi_user_id") @db.Uuid
+  createdBy          String              @map("created_by") @db.Uuid
+  isSeed             Boolean             @default(false) @map("is_seed")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  conversations      Conversation[]
+  events             Event[]
+  joinRequests        JoinRequest[]
+  memberships        Membership[]
+  opportunities      Opportunity[]
+  researchTeamTopics ResearchTeamTopic[]
+  creator            User                @relation("ResearchTeamCreatedBy", fields: [createdBy], references: [id])
+  pi                 User                @relation("ResearchTeamPI", fields: [piUserId], references: [id])
+
+  @@index([piUserId])
+  @@index([createdBy])
+  @@map("research_teams")
+}
+
+model ResearchTeamTopic {
+  researchTeamId  String        @map("research_team_id") @db.Uuid
+  researchTopicId String        @map("research_topic_id") @db.Uuid
+  isSeed          Boolean       @default(false) @map("is_seed")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  researchTeam    ResearchTeam  @relation(fields: [researchTeamId], references: [id], onDelete: Cascade)
+  researchTopic   ResearchTopic @relation(fields: [researchTopicId], references: [id], onDelete: Cascade)
+
+  @@id([researchTeamId, researchTopicId])
+  @@index([researchTeamId])
+  @@index([researchTopicId])
+  @@map("research_team_topics")
+}
+
+/// Added per DECISIONS.md D-009 — models PROJECT_SPEC.md §5's
+/// `Student -INTERESTED_IN-> ResearchTopic`, which no table previously
+/// captured. Mirrors user_skills' shape (user_id + entity FK, no separate id).
+model UserResearchTopic {
+  userId          String        @map("user_id") @db.Uuid
+  researchTopicId String        @map("research_topic_id") @db.Uuid
+  isSeed          Boolean       @default(false) @map("is_seed")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  researchTopic   ResearchTopic @relation(fields: [researchTopicId], references: [id], onDelete: Cascade)
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, researchTopicId])
+  @@index([userId])
+  @@index([researchTopicId])
+  @@map("user_research_topics")
+}
+
+model Publication {
+  id                  String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title               String
+  abstract            String?
+  journalOrConference String?                  @map("journal_or_conference")
+  publishedDate       DateTime?                @map("published_date") @db.Date
+  doi                 String?
+  externalUrl         String?                  @map("external_url")
+  pdfUrl              String?                  @map("pdf_url")
+  isSeed              Boolean                  @default(false) @map("is_seed")
+  createdAt           DateTime                 @default(now()) @map("created_at")
+  updatedAt           DateTime                 @updatedAt @map("updated_at")
+  search_vector       Unsupported("tsvector")? @default(dbgenerated("to_tsvector('english'::regconfig, ((COALESCE(title, ''::text) || ' '::text) || COALESCE(abstract, ''::text)))"))
+  authors             PublicationAuthor[]
+  topics              PublicationTopic[]
+
+  @@index([search_vector], type: Gin)
+  @@map("publications")
+}
+
+/// Ordered join: publication <-> user (author). PK is (publication_id,
+/// user_id) — an author appears once per publication; author_order is an
+/// attribute of that membership, not part of its identity.
+model PublicationAuthor {
+  publicationId String      @map("publication_id") @db.Uuid
+  userId        String      @map("user_id") @db.Uuid
+  authorOrder   Int         @map("author_order")
+  isSeed        Boolean     @default(false) @map("is_seed")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  publication   Publication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([publicationId, userId])
+  @@index([publicationId])
+  @@index([userId])
+  @@map("publication_authors")
+}
+
+model PublicationTopic {
+  publicationId   String        @map("publication_id") @db.Uuid
+  researchTopicId String        @map("research_topic_id") @db.Uuid
+  isSeed          Boolean       @default(false) @map("is_seed")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  publication     Publication   @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+  researchTopic   ResearchTopic @relation(fields: [researchTopicId], references: [id], onDelete: Cascade)
+
+  @@id([publicationId, researchTopicId])
+  @@index([publicationId])
+  @@index([researchTopicId])
+  @@map("publication_topics")
+}
+
+model Project {
+  id                  String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                String
+  /// Who can discover this project — reuses the EXISTING Visibility enum
+  /// (same values as privacy_settings), not a new one. VISIBILITY ≠
+  /// MEMBERSHIP: visibility governs discovery; membership (ProjectMember)
+  /// governs workspace access and management. See DECISIONS.md.
+  visibility          Visibility               @default(public)
+  logoUrl             String?                  @map("logo_url")
+  problemStatement    String?                  @map("problem_statement")
+  solutionDescription String?                  @map("solution_description")
+  description         String?
+  status              ProjectStatus            @default(idea)
+  githubUrl           String?                  @map("github_url")
+  demoUrl             String?                  @map("demo_url")
+  docsUrl             String?                  @map("docs_url")
+  /// Combined-project extensions (Campus UI fields, optional):
+  /// free-text category, free-text deadline, team size cap, collaboration
+  /// mode, and structured requirements. All nullable — the core UCN model
+  /// is unchanged when they are absent.
+  category            String?
+  deadlineText        String?                  @map("deadline_text")
+  maxTeamSize         Int?                     @map("max_team_size")
+  collaborationType   String?                  @map("collaboration_type")
+  requirements        Json?
+  createdBy           String                   @map("created_by") @db.Uuid
+  isSeed              Boolean                  @default(false) @map("is_seed")
+  createdAt           DateTime                 @default(now()) @map("created_at")
+  updatedAt           DateTime                 @updatedAt @map("updated_at")
+  search_vector       Unsupported("tsvector")? @default(dbgenerated("to_tsvector('english'::regconfig, ((COALESCE(name, ''::text) || ' '::text) || COALESCE(description, ''::text)))"))
+  conversations       Conversation[]
+  members             ProjectMember[]
+  joinRequests        JoinRequest[]
+  skillsNeeded        ProjectSkillNeeded[]
+  topics              ProjectTopic[]
+  creator             User                     @relation("ProjectCreatedBy", fields: [createdBy], references: [id])
+
+  @@index([createdBy])
+  @@index([search_vector], type: Gin)
+  @@map("projects")
+}
+
+model ProjectMember {
+  projectId     String   @map("project_id") @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  roleOnProject String?  @map("role_on_project")
+  isSeed        Boolean  @default(false) @map("is_seed")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
+  @@map("project_members")
+}
+
+/// PK includes role_needed (not just project_id+skill_id) so the same skill
+/// can legitimately be needed under more than one role bucket on one project
+/// (e.g. "React" needed for both frontend and design).
+model ProjectSkillNeeded {
+  projectId  String          @map("project_id") @db.Uuid
+  skillId    String          @map("skill_id") @db.Uuid
+  roleNeeded SkillRoleNeeded @map("role_needed")
+  isSeed     Boolean         @default(false) @map("is_seed")
+  createdAt  DateTime        @default(now()) @map("created_at")
+  updatedAt  DateTime        @updatedAt @map("updated_at")
+  project    Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  skill      Skill           @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, skillId, roleNeeded])
+  @@index([projectId])
+  @@index([skillId])
+  @@map("project_skills_needed")
+}
+
+model ProjectTopic {
+  projectId       String        @map("project_id") @db.Uuid
+  researchTopicId String        @map("research_topic_id") @db.Uuid
+  isSeed          Boolean       @default(false) @map("is_seed")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  researchTopic   ResearchTopic @relation(fields: [researchTopicId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, researchTopicId])
+  @@index([projectId])
+  @@index([researchTopicId])
+  @@map("project_topics")
+}
+
+model Skill {
+  id              String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String               @unique
+  category        String?
+  isSeed          Boolean              @default(false) @map("is_seed")
+  createdAt       DateTime             @default(now()) @map("created_at")
+  updatedAt       DateTime             @updatedAt @map("updated_at")
+  projectsNeeding ProjectSkillNeeded[]
+  userSkills      UserSkill[]
+
+  @@map("skills")
+}
+
+/// PK is (user_id, skill_id) — a user has each skill at most once;
+/// proficiency is an attribute of that fact, not part of its identity (and
+/// being nullable, it cannot itself be part of a primary key in Postgres).
+model UserSkill {
+  userId      String            @map("user_id") @db.Uuid
+  skillId     String            @map("skill_id") @db.Uuid
+  proficiency SkillProficiency?
+  isSeed      Boolean           @default(false) @map("is_seed")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  skill       Skill             @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, skillId])
+  @@index([userId])
+  @@index([skillId])
+  @@map("user_skills")
+}
+
+model Event {
+  id                      String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title                   String
+  description             String?
+  eventType               EventType          @map("event_type")
+  date                    DateTime           @db.Date
+  time                    DateTime?          @db.Time(6)
+  venue                   String?
+  organizerOrganizationId String?            @map("organizer_organization_id") @db.Uuid
+  organizerResearchTeamId String?            @map("organizer_research_team_id") @db.Uuid
+  registrationUrl         String?            @map("registration_url")
+  /// Combined-project extensions (Campus UI fields, optional):
+  /// capacity cap and display tags. registeredCount stays derived from
+  /// the participants relation.
+  capacity                Int?
+  tags                    Json?
+  isSeed                  Boolean            @default(false) @map("is_seed")
+  createdAt               DateTime           @default(now()) @map("created_at")
+  updatedAt               DateTime           @updatedAt @map("updated_at")
+  participants            EventParticipant[]
+  organizerOrganization   Organization?      @relation(fields: [organizerOrganizationId], references: [id], onDelete: Cascade)
+  organizerResearchTeam   ResearchTeam?      @relation(fields: [organizerResearchTeamId], references: [id], onDelete: Cascade)
+
+  @@index([organizerOrganizationId])
+  @@index([organizerResearchTeamId])
+  @@map("events")
+}
+
+model EventParticipant {
+  eventId   String   @map("event_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  isSeed    Boolean  @default(false) @map("is_seed")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, userId])
+  @@index([eventId])
+  @@index([userId])
+  @@map("event_participants")
+}
+
+model Opportunity {
+  id                       String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title                    String
+  description              String?
+  opportunityType          OpportunityType @map("opportunity_type")
+  providedByOrganizationId String?         @map("provided_by_organization_id") @db.Uuid
+  providedByResearchTeamId String?         @map("provided_by_research_team_id") @db.Uuid
+  deadline                 DateTime?       @db.Date
+  departmentTag            String?         @map("department_tag")
+  researchTopicId          String?         @map("research_topic_id") @db.Uuid
+  isSeed                   Boolean         @default(false) @map("is_seed")
+  createdAt                DateTime        @default(now()) @map("created_at")
+  updatedAt                DateTime        @updatedAt @map("updated_at")
+  applications             Application[]
+  providedByOrganization   Organization?   @relation(fields: [providedByOrganizationId], references: [id], onDelete: Cascade)
+  providedByResearchTeam   ResearchTeam?   @relation(fields: [providedByResearchTeamId], references: [id], onDelete: Cascade)
+  researchTopic            ResearchTopic?  @relation(fields: [researchTopicId], references: [id])
+
+  @@index([providedByOrganizationId])
+  @@index([providedByResearchTeamId])
+  @@index([researchTopicId])
+  @@map("opportunities")
+}
+
+model Application {
+  id            String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  opportunityId String            @map("opportunity_id") @db.Uuid
+  applicantId   String            @map("applicant_id") @db.Uuid
+  status        ApplicationStatus @default(submitted)
+  submittedAt   DateTime          @default(now()) @map("submitted_at")
+  isSeed        Boolean           @default(false) @map("is_seed")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+  applicant     User              @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  opportunity   Opportunity       @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  @@index([opportunityId])
+  @@index([applicantId])
+  @@map("applications")
+}
+
+model Connection {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requesterId String           @map("requester_id") @db.Uuid
+  addresseeId String           @map("addressee_id") @db.Uuid
+  status      ConnectionStatus @default(pending)
+  message     String
+  isSeed      Boolean          @default(false) @map("is_seed")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  addressee   User             @relation("ConnectionAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+  requester   User             @relation("ConnectionRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, addresseeId])
+  @@index([requesterId])
+  @@index([addresseeId])
+  @@map("connections")
+}
+
+/// One-directional, instant — no status, unlike Connection.
+model Follow {
+  followerId String   @map("follower_id") @db.Uuid
+  followeeId String   @map("followee_id") @db.Uuid
+  isSeed     Boolean  @default(false) @map("is_seed")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  followee   User     @relation("Followee", fields: [followeeId], references: [id], onDelete: Cascade)
+  follower   User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followeeId])
+  @@index([followerId])
+  @@index([followeeId])
+  @@map("follows")
+}
+
+model Conversation {
+  id             String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  type           ConversationType
+  projectId      String?                   @map("project_id") @db.Uuid
+  researchTeamId String?                   @map("research_team_id") @db.Uuid
+  organizationId String?                   @map("organization_id") @db.Uuid
+  groupId        String?                   @unique @map("group_id") @db.Uuid
+  isSeed         Boolean                   @default(false) @map("is_seed")
+  createdAt      DateTime                  @default(now()) @map("created_at")
+  updatedAt      DateTime                  @updatedAt @map("updated_at")
+  participants   ConversationParticipant[]
+  organization   Organization?             @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  group          Group?                    @relation("GroupConversation", fields: [groupId], references: [id], onDelete: Cascade)
+  project        Project?                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  researchTeam   ResearchTeam?             @relation(fields: [researchTeamId], references: [id], onDelete: Cascade)
+  messages       Message[]
+
+  @@index([projectId])
+  @@index([researchTeamId])
+  @@index([organizationId])
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  conversationId String       @map("conversation_id") @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  /// Real unread state — set to now() when the participant opens the
+  /// conversation; a message is unread if sentAt > lastReadAt.
+  lastReadAt     DateTime?    @map("last_read_at")
+  isSeed         Boolean      @default(false) @map("is_seed")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([conversationId, userId])
+  @@index([conversationId])
+  @@index([userId])
+  @@map("conversation_participants")
+}
+
+model Message {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId  String          @map("conversation_id") @db.Uuid
+  senderId        String          @map("sender_id") @db.Uuid
+  body            String
+  attachmentUrl   String?         @map("attachment_url")
+  invitationType  InvitationType? @map("invitation_type")
+  invitationRefId String?         @map("invitation_ref_id") @db.Uuid
+  sentAt          DateTime        @default(now()) @map("sent_at")
+  isSeed          Boolean         @default(false) @map("is_seed")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+  conversation    Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender          User            @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@map("messages")
+}
+
+model Notification {
+  id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType
+  payload   Json
+  readAt    DateTime?        @map("read_at")
+  isSeed    Boolean          @default(false) @map("is_seed")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notifications")
+}
+
+model NotificationPreferences {
+  userId               String   @id @map("user_id") @db.Uuid
+  connectionRequests   Boolean  @default(true) @map("connection_requests")
+  messages             Boolean  @default(true) @map("messages")
+  projectInvitations   Boolean  @default(true) @map("project_invitations")
+  researchInvitations  Boolean  @default(true) @map("research_invitations")
+  clubAnnouncements    Boolean  @default(true) @map("club_announcements")
+  eventReminders       Boolean  @default(true) @map("event_reminders")
+  opportunityDeadlines Boolean  @default(true) @map("opportunity_deadlines")
+  publications         Boolean  @default(true) @map("publications")
+  teamRecruitment      Boolean  @default(true) @map("team_recruitment")
+  profileInteractions  Boolean  @default(true) @map("profile_interactions")
+  isSeed               Boolean  @default(false) @map("is_seed")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_preferences")
+}
+
+model Report {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reporterId  String           @map("reporter_id") @db.Uuid
+  targetType  ReportTargetType @map("target_type")
+  targetId    String           @map("target_id") @db.Uuid
+  reason      ReportReason
+  description String?
+  status      ReportStatus     @default(open)
+  reviewedBy  String?          @map("reviewed_by") @db.Uuid
+  /// Added per DECISIONS.md D-007. Null until an admin acts on the report.
+  action      ReportAction?
+  isSeed      Boolean          @default(false) @map("is_seed")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  reporter    User             @relation("ReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reviewer    User?            @relation("ReportReviewedBy", fields: [reviewedBy], references: [id])
+
+  @@index([reporterId])
+  @@index([reviewedBy])
+  @@index([targetType, targetId])
+  @@map("reports")
+}
+
+enum UserRole {
+  student
+  professor
+  researcher
+  professional
+  club_rep
+  startup_member
+  alumni
+  admin
+}
+
+enum UserStatus {
+  pending_verification
+  active
+  suspended
+  banned
+}
+
+/// Same set as UserRole minus student/alumni, per DATABASE_SCHEMA.md
+/// verifications.role_claimed definition.
+enum VerificationRoleClaim {
+  professor
+  researcher
+  club_rep
+  startup_member
+  admin
+}
+
+enum VerificationStatus {
+  pending
+  approved
+  rejected
+}
+
+enum ResearcherType {
+  phd
+  postdoc
+  research_associate
+  research_assistant
+  faculty
+}
+
+/// Reused across profile_visibility and every *_visibility column in
+/// privacy_settings, per DATABASE_SCHEMA.md.
+model Group {
+  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  description String?
+  avatarUrl   String?      @map("avatar_url")
+  ownerId     String       @map("owner_id") @db.Uuid
+  /// Personal groups default private — entry only via invitation/link
+  /// (spec §35). Not exposed in global search.
+  isSeed      Boolean      @default(false) @map("is_seed")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  owner       User         @relation("GroupOwner", fields: [ownerId], references: [id])
+  members     GroupMember[]
+  joinRequests JoinRequest[]
+  inviteLinks GroupInviteLink[]
+  conversation Conversation? @relation("GroupConversation")
+
+  @@index([ownerId])
+  @@map("groups")
+}
+
+model GroupMember {
+  groupId   String    @map("group_id") @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  role      GroupMemberRole @default(member)
+  isSeed    Boolean   @default(false) @map("is_seed")
+  createdAt DateTime  @default(now()) @map("created_at")
+  group     Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User      @relation("GroupMemberships", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, userId])
+  @@index([userId])
+  @@map("group_members")
+}
+
+model GroupInviteLink {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  groupId   String    @map("group_id") @db.Uuid
+  /// Secure opaque token — the group id is never the invitation.
+  token     String    @unique
+  createdBy String    @map("created_by") @db.Uuid
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  group     Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  creator   User      @relation("GroupInviteLinkCreator", fields: [createdBy], references: [id])
+
+  @@index([groupId])
+  @@map("group_invite_links")
+}
+
+model JoinRequest {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String           @map("user_id") @db.Uuid
+  projectId      String?          @map("project_id") @db.Uuid
+  researchTeamId String?          @map("research_team_id") @db.Uuid
+  groupId        String?          @map("group_id") @db.Uuid
+  /// request = user asked to join; invitation = creator/PI invited the user
+  direction      JoinRequestDirection
+  status         JoinRequestStatus @default(pending)
+  message        String?
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project        Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  researchTeam   ResearchTeam?    @relation(fields: [researchTeamId], references: [id], onDelete: Cascade)
+  group          Group?           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([researchTeamId])
+  @@map("join_requests")
+}
+
+enum GroupMemberRole {
+  owner
+  member
+}
+
+enum JoinRequestDirection {
+  request
+  invitation
+}
+
+enum JoinRequestStatus {
+  pending
+  accepted
+  rejected
+}
+
+enum Visibility {
+  public
+  university_only
+  connections_only
+  private
+}
+
+enum OrganizationType {
+  club
+  society
+  startup
+}
+
+enum MembershipRole {
+  member
+  leader
+  advisor
+  founder
+  pi
+}
+
+enum ProjectStatus {
+  idea
+  planning
+  development
+  beta
+  active
+  completed
+  archived
+}
+
+enum SkillRoleNeeded {
+  frontend
+  backend
+  ml
+  design
+  research
+  product
+  other
+}
+
+enum SkillProficiency {
+  beginner
+  intermediate
+  advanced
+  expert
+}
+
+enum EventType {
+  hackathon
+  workshop
+  seminar
+  conference
+  talk
+  guest_lecture
+  competition
+  startup_event
+  club_event
+}
+
+enum OpportunityType {
+  research
+  internship
+  project
+  startup
+  volunteer
+  club
+  hackathon
+  mentorship
+  thesis
+  research_assistant
+  teaching_assistant
+}
+
+enum ApplicationStatus {
+  submitted
+  under_review
+  accepted
+  rejected
+}
+
+enum ConnectionStatus {
+  pending
+  accepted
+  declined
+  blocked
+}
+
+enum ConversationType {
+  direct
+  group
+  project
+  research_team
+  club
+}
+
+enum InvitationType {
+  none
+  project
+  research_team
+}
+
+/// Values inferred from notification_preferences' 10 boolean columns —
+/// DATABASE_SCHEMA.md points at "spec §22" for the authoritative list, which
+/// is not available in this repo. See DECISIONS.md D-008: this is a
+/// documented placeholder pending verification against the real master
+/// prompt, not a confirmed-final list.
+enum NotificationType {
+  connection_request
+  new_message
+  project_invitation
+  research_invitation
+  club_announcement
+  event_reminder
+  opportunity_deadline
+  new_publication
+  team_recruitment
+  profile_interaction
+}
+
+enum ReportTargetType {
+  user
+  project
+  organization
+  publication
+  message
+}
+
+enum ReportReason {
+  fake_account
+  spam
+  harassment
+  impersonation
+  misleading
+  inappropriate
+}
+
+enum ReportStatus {
+  open
+  reviewing
+  resolved
+  dismissed
+}
+
+/// Added per DECISIONS.md D-007 — DATABASE_SCHEMA.md originally had no
+/// column to store the `action` field API_CONTRACT.md §9 already documents.
+enum ReportAction {
+  none
+  restrict
+  suspend
+  ban
+}
