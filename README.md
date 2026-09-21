@@ -130,3 +130,10 @@ are absent.
 - Services / portfolio items / council notices are client-side features
 - People list does not poll (N+1 hydration) — new users appear on next login/reload
 - No security-hardening pass yet (upstream Phases 10–14)
+
+## Responsive design
+
+- Mobile messages layout: conversation list ↔ chat toggle with a back button (<md shows one pane at a time)
+- All views use fluid grids (`grid-cols-1` → `sm`/`md`/`lg` breakpoints) and wrapping filter bars
+- Modals are viewport-safe (`max-h-[90vh]`, scrollable, full-width on phones)
+- Navbar collapses to a drawer below `xl`; quick actions move into it
