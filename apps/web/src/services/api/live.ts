@@ -10,7 +10,8 @@ import {
   mapApiMessage,
   mapApiNotification,
   mapApiJoinRequestAsApplication,
-  mapApiConnectionAsCollabRequest,
+  mapApiConnection,
+  str,
   initialsAvatar,
   roleLabel,
 } from './adapters';
@@ -22,7 +23,8 @@ import type {
   CampusEvent,
   CouncilAnnouncement,
   ProjectApplication,
-  CollaborationRequest,
+  Connection,
+  Startup,
   Conversation,
   Message,
   NotificationItem,
@@ -106,7 +108,8 @@ export interface LiveBootstrap {
   events: CampusEvent[];
   announcements: CouncilAnnouncement[];
   applications: ProjectApplication[];
-  collabRequests: CollaborationRequest[];
+  connections: Connection[];
+  startups: Startup[];
   conversations: Conversation[];
   messages: Message[];
   notifications: NotificationItem[];
@@ -243,17 +246,69 @@ async function fetchApplications(currentUserId: string): Promise<ProjectApplicat
   return [...receivedApps, ...sentApps];
 }
 
-async function fetchCollabRequests(): Promise<CollaborationRequest[]> {
+async function fetchConnections(): Promise<Connection[]> {
   try {
     const rows = await fetchPage('/connections?limit=50');
-    return rows.map((r) => mapApiConnectionAsCollabRequest(r));
+    return rows.map((r) => mapApiConnection(r));
   } catch {
     return [];
   }
 }
 
+
+async function fetchStartups(currentUserId: string): Promise<Startup[]> {
+  let orgs: AnyRow[] = [];
+  try {
+    orgs = await fetchPage('/organizations?type=startup&limit=50');
+  } catch {
+    return [];
+  }
+
+  const detailed = await Promise.all(
+    orgs.slice(0, 30).map(async (org) => {
+      const slug = String(org.slug ?? '');
+      if (!slug) return org;
+      try {
+        return await apiFetch<AnyRow>(`/organizations/${encodeURIComponent(slug)}`);
+      } catch {
+        return org;
+      }
+    }),
+  );
+
+  return detailed.map((org) => {
+    const name = String(org.name ?? 'Startup');
+    const memberships = Array.isArray(org.memberships) ? (org.memberships as AnyRow[]) : [];
+    const memberIds = memberships
+      .map((m) => String((m.user as AnyRow | undefined)?.id ?? ''))
+      .filter(Boolean);
+    const details = (org.startupDetails ?? {}) as AnyRow;
+    const stage = str(details.stage) || 'ongoing';
+    const allowed = ['ongoing', 'completed', 'incubated', 'graduated'];
+
+    return {
+      id: String(org.id),
+      name,
+      slug: String(org.slug ?? ''),
+      logo: String(org.logoUrl ?? '') || initialsAvatar(name),
+      description: str(org.description),
+      category: str(org.category) || str(details.industry) || 'Startup',
+      status: (allowed.includes(stage) ? stage : 'ongoing') as Startup['status'],
+      industry: str(details.industry),
+      stage,
+      websiteUrl: str(details.websiteUrl) || undefined,
+      hiring: !!details.hiring,
+      founders: memberIds.slice(0, 4),
+      memberCount: memberIds.length,
+      university: 'University',
+      isJoined: memberIds.includes(currentUserId),
+      createdAt: str(org.createdAt, new Date().toISOString()).slice(0, 10),
+    } satisfies Startup;
+  });
+}
+
 export async function fetchLiveBootstrap(currentUserId: string): Promise<LiveBootstrap> {
-  const [users, projects, events, convData, notifications, applications, collabRequests, communities] =
+  const [users, projects, events, convData, notifications, applications, connections, communities, startups] =
     await Promise.all([
       fetchUsers(),
       fetchPage('/projects?limit=50').then((rows) => rows.map((r) => mapApiProject(r))).catch(() => [] as Project[]),
@@ -265,8 +320,9 @@ export async function fetchLiveBootstrap(currentUserId: string): Promise<LiveBoo
         .then((rows) => rows.map((r) => mapApiNotification(r, currentUserId)))
         .catch(() => [] as NotificationItem[]),
       fetchApplications(currentUserId),
-      fetchCollabRequests(),
+      fetchConnections(),
       fetchCommunities(currentUserId),
+      fetchStartups(currentUserId),
     ]);
 
   return {
@@ -277,7 +333,8 @@ export async function fetchLiveBootstrap(currentUserId: string): Promise<LiveBoo
     events,
     announcements: [],
     applications,
-    collabRequests,
+    connections,
+    startups,
     conversations: convData.conversations,
     messages: convData.messages,
     notifications,
@@ -296,6 +353,7 @@ export async function liveCreateProject(
       name: data.title,
       description: data.description,
       category: data.category,
+      visibility: data.visibility,
       deadlineText: data.deadline,
       maxTeamSize: data.maxTeamSize,
       collaborationType: data.collaborationType,
@@ -402,30 +460,101 @@ export async function liveUpdateProfile(
   }
 }
 
-export async function liveSendCollaborationRequest(data: {
-  receiverId: string;
-  type: string;
-  title: string;
-  message: string;
-}): Promise<CollaborationRequest> {
-  const note = `[${data.type}] ${data.title}: ${data.message}`;
+export async function liveSendConnectionRequest(
+  receiverId: string,
+  message?: string,
+): Promise<Connection> {
   const raw = await apiFetch<AnyRow>('/connections', {
     method: 'POST',
-    body: { addresseeId: data.receiverId, message: note },
+    body: { addresseeId: receiverId, ...(message ? { message } : {}) },
   });
-  const mapped = mapApiConnectionAsCollabRequest(raw);
-  mapped.senderId = 'me';
-  return mapped;
+  return mapApiConnection(raw);
 }
 
-export async function liveHandleCollaborationStatus(
+export async function liveRespondToConnectionRequest(
   requestId: string,
-  status: 'Accepted' | 'Declined',
+  status: 'accepted' | 'declined',
 ): Promise<void> {
   await apiFetch(`/connections/${requestId}`, {
     method: 'PATCH',
-    body: { status: status === 'Accepted' ? 'accepted' : 'declined' },
+    body: { status },
   });
+}
+
+export async function liveCancelConnectionRequest(requestId: string): Promise<void> {
+  await apiFetch(`/connections/${requestId}`, { method: 'DELETE' });
+}
+
+export async function liveCreateStartup(data: {
+  name: string;
+  description?: string;
+  logoUrl?: string;
+  category?: string;
+  industry?: string;
+  stage?: string;
+  websiteUrl?: string;
+  hiring?: boolean;
+}): Promise<unknown> {
+  return apiFetch<AnyRow>('/organizations', {
+    method: 'POST',
+    body: {
+      type: 'startup',
+      name: data.name,
+      description: data.description,
+      logoUrl: data.logoUrl || undefined,
+      category: data.category,
+      startupDetails: {
+        industry: data.industry,
+        stage: data.stage,
+        websiteUrl: data.websiteUrl,
+        hiring: data.hiring,
+      },
+    },
+  });
+}
+
+/** The UI's display statuses map back to the API's ProjectStatus enum —
+ * 'Draft'/'Open'/'In Progress'/'Completed' are display labels, not enum
+ * values (sending them raw fails validation). */
+function mapC1StatusToApi(status: string): string {
+  switch (status) {
+    case 'Draft': return 'idea';
+    case 'Open': return 'planning';
+    case 'In Progress': return 'development';
+    case 'Completed': return 'completed';
+    default: return 'planning';
+  }
+}
+
+export async function liveUpdateProject(
+  projectId: string,
+  data: Record<string, unknown>,
+  skillNames: string[],
+): Promise<Project> {
+  const skillsNeeded = await resolveSkills(skillNames);
+  const { status, ...rest } = data;
+  const body: Record<string, unknown> = {
+    ...rest,
+    ...(typeof status === 'string' ? { status: mapC1StatusToApi(status) } : {}),
+    skillsNeeded,
+  };
+  const raw = await apiFetch<AnyRow>(`/projects/${projectId}`, {
+    method: 'PATCH',
+    body,
+  });
+  return mapApiProject(raw);
+}
+
+export async function liveDeleteProject(projectId: string): Promise<void> {
+  await apiFetch(`/projects/${projectId}`, { method: 'DELETE' });
+}
+
+export async function liveLeaveProject(projectId: string): Promise<void> {
+  await apiFetch(`/projects/${projectId}/leave`, { method: 'POST' });
+}
+
+export async function liveRemoveProjectMember(projectId: string, userId: string): Promise<void> {
+  await apiFetch(`/projects/${projectId}/members/${userId}`, { method: 'DELETE' });
 }
 
 export async function liveMarkNotificationRead(id: string): Promise<void> {

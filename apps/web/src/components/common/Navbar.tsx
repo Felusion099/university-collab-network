@@ -20,6 +20,7 @@ import {
   Building2,
   Check,
   LogOut,
+  Rocket,
 } from 'lucide-react';
 import { ActiveTab } from '../../types';
 
@@ -54,6 +55,7 @@ export const Navbar: React.FC = () => {
     { id: 'home', label: 'Explore', icon: Compass },
     { id: 'people', label: 'People & Labs', icon: Users },
     { id: 'projects', label: 'Projects', icon: Briefcase },
+    { id: 'startups', label: 'Startups', icon: Rocket },
     { id: 'communities', label: 'Communities', icon: Layers },
     { id: 'events', label: 'Events', icon: Calendar },
     { id: 'announcements', label: 'Council Notices', icon: Building2 },

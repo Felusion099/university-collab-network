@@ -11,9 +11,12 @@ export class ProjectRepository {
     topic?: string;
     lookingFor?: string;
     createdBy?: string;
+    viewerId?: string;
   }) {
     const where: Prisma.ProjectWhereInput = {};
+    // Archived (deleted) projects never appear in discovery
     if (params.status) where.status = params.status as Prisma.EnumProjectStatusFilter["equals"];
+    else where.status = { not: "archived" };
     if (params.createdBy) where.createdBy = params.createdBy;
     if (params.skill) {
       where.skillsNeeded = { some: { skill: { name: params.skill } } };
@@ -25,6 +28,30 @@ export class ProjectRepository {
       where.skillsNeeded = {
         some: { roleNeeded: params.lookingFor as Prisma.EnumSkillRoleNeededFilter["equals"] },
       };
+    }
+    // Visibility-aware discovery (public/private post-like behavior):
+    // anonymous viewers see public projects only; authenticated viewers
+    // additionally see university-restricted/connections-only projects,
+    // their OWN private projects, and private projects they are a member of.
+    const viewerId = params.viewerId;
+    if (params.createdBy) {
+      // An explicit creator filter (profile views) — the caller handles
+      // self vs other; for others, private projects are excluded.
+      if (!viewerId || viewerId !== params.createdBy) {
+        if (viewerId) {
+          where.visibility = { not: "private" };
+        } else {
+          where.visibility = "public";
+        }
+      }
+    } else if (!viewerId) {
+      where.visibility = "public";
+    } else {
+      where.OR = [
+        { visibility: { not: "private" } },
+        { createdBy: viewerId },
+        { visibility: "private", members: { some: { userId: viewerId } } },
+      ];
     }
     return prisma.project.findMany({
       where,

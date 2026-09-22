@@ -10,6 +10,7 @@ export const CreateProjectModal: React.FC = () => {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<Project['category']>('Hackathon');
   const [collaborationType, setCollaborationType] = useState<Project['collaborationType']>('Hybrid');
+  const [visibility, setVisibility] = useState<Project['visibility']>('public');
   const [maxTeamSize, setMaxTeamSize] = useState<number>(4);
   const [deadline, setDeadline] = useState('October 30, 2026');
   const [rolesStr, setRolesStr] = useState('ML Engineer, UI/UX Designer, Frontend Developer');
@@ -28,6 +29,7 @@ export const CreateProjectModal: React.FC = () => {
       category,
       status: 'Open',
       collaborationType,
+      visibility,
       maxTeamSize: Number(maxTeamSize) || 4,
       deadline,
       requiredRoles: rolesStr.split(',').map((r) => r.trim()).filter(Boolean),
@@ -90,6 +92,18 @@ export const CreateProjectModal: React.FC = () => {
               <option value="Hybrid">Hybrid (Campus + Remote)</option>
               <option value="In-person">In-Person Only</option>
               <option value="Remote">Remote</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block font-medium text-zinc-700 mb-1">Visibility</label>
+            <select
+              value={visibility}
+              onChange={(e) => setVisibility(e.target.value as Project['visibility'])}
+              className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-xs bg-white text-zinc-700 focus:outline-none"
+            >
+              <option value="public">Public — discoverable by everyone</option>
+              <option value="private">Private — only you and your team</option>
             </select>
           </div>
 

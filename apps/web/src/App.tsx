@@ -2,12 +2,13 @@ import React from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/common/Navbar';
-import { HeroSearch } from './components/discovery/HeroSearch';
 import { HomeView } from './components/home/HomeView';
 import { LoginPage } from './components/auth/LoginPage';
 import { PeopleDiscovery } from './components/discovery/PeopleDiscovery';
 import { ProjectDiscovery } from './components/discovery/ProjectDiscovery';
+import { ProjectDetailView } from './components/projects/ProjectDetailView';
 import { CommunitiesDiscovery } from './components/discovery/CommunitiesDiscovery';
+import { StartupsView } from './components/discovery/StartupsView';
 import { EventsDiscovery } from './components/discovery/EventsDiscovery';
 import { AnnouncementsView } from './components/discovery/AnnouncementsView';
 import { DashboardView } from './components/dashboard/DashboardView';
@@ -19,8 +20,9 @@ import { UserProfileModal } from './components/profile/UserProfileModal';
 import { EditProfileModal } from './components/profile/EditProfileModal';
 import { AddPortfolioModal } from './components/profile/AddPortfolioModal';
 import { CreateProjectModal } from './components/creation/CreateProjectModal';
+import { EditProjectModal } from './components/creation/EditProjectModal';
 import { ProjectApplicationModal } from './components/creation/ProjectApplicationModal';
-import { CollaborationRequestModal } from './components/creation/CollaborationRequestModal';
+import { ConnectionRequestModal } from './components/creation/ConnectionRequestModal';
 import { ShieldCheck, GraduationCap, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 
 const LoadingScreen: React.FC = () => (
@@ -61,28 +63,26 @@ const ToastHost: React.FC = () => {
 };
 
 const AppContent: React.FC = () => {
-  const { activeTab, isLoading } = useApp();
-
-  const isDiscoveryTab = ['people', 'projects', 'communities', 'events'].includes(activeTab);
+  const { activeTab, isLoading, selectedProjectId, setSelectedProjectId } = useApp();
 
   return (
     <div className="min-h-screen bg-stone-50 text-zinc-900 flex flex-col font-sans selection:bg-zinc-900 selection:text-white">
       {/* Top Global Navigation Bar */}
       <Navbar />
 
-      {/* Hero Search on discovery tabs */}
-      {isDiscoveryTab && <HeroSearch />}
-
-      {/* Main Tab Views */}
+      {/* Main Tab Views — a selected project renders the full detail view */}
       <main className="flex-1 pb-16">
         {isLoading ? (
           <LoadingScreen />
+        ) : selectedProjectId ? (
+          <ProjectDetailView />
         ) : (
           <>
             {activeTab === 'home' && <HomeView />}
             {activeTab === 'people' && <PeopleDiscovery />}
             {activeTab === 'projects' && <ProjectDiscovery />}
-              {activeTab === 'communities' && <CommunitiesDiscovery />}
+              {activeTab === 'startups' && <StartupsView />}
+            {activeTab === 'communities' && <CommunitiesDiscovery />}
             {activeTab === 'events' && <EventsDiscovery />}
             {activeTab === 'announcements' && <AnnouncementsView />}
             {activeTab === 'dashboard' && <DashboardView />}
@@ -97,8 +97,9 @@ const AppContent: React.FC = () => {
       <EditProfileModal />
       <AddPortfolioModal />
       <CreateProjectModal />
+      <EditProjectModal />
       <ProjectApplicationModal />
-      <CollaborationRequestModal />
+      <ConnectionRequestModal />
 
       {/* Toasts */}
       <ToastHost />

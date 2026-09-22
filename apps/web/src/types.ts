@@ -89,6 +89,10 @@ export interface Project {
   requirements: string[];
   tags: string[];
   createdAt: string;
+  /** Public/private post-like visibility — separate from membership and
+   * from user profile visibility. Private projects are visible only to
+   * the owner and existing members (server-enforced). */
+  visibility: 'public' | 'private';
 }
 
 export interface ProjectApplication {
@@ -104,14 +108,15 @@ export interface ProjectApplication {
   submittedAt: string;
 }
 
-export interface CollaborationRequest {
+/** Professional connection — a first-class relationship SEPARATE from
+ * project collaboration, follows, community membership and messaging.
+ * States drive the UI: Connect / Request Sent / Accept-Decline / Connected. */
+export interface Connection {
   id: string;
-  senderId: string;
-  receiverId: string;
-  type: 'hackathon' | 'research' | 'project' | 'mentorship';
-  title: string;
+  requesterId: string;
+  addresseeId: string;
+  status: 'pending' | 'accepted' | 'declined' | 'blocked';
   message: string;
-  status: 'Pending' | 'Accepted' | 'Declined';
   createdAt: string;
 }
 
@@ -196,10 +201,32 @@ export interface SavedItem {
   savedAt: string;
 }
 
+export interface Startup {
+  id: string;
+  name: string;
+  slug: string;
+  logo: string;
+  description: string;
+  category: string;
+  /** Lifecycle: initial ideas stay under Projects — the Startups section
+   * holds ongoing/incubated/graduated/completed ventures. */
+  status: 'ongoing' | 'completed' | 'incubated' | 'graduated';
+  industry: string;
+  stage: string;
+  websiteUrl?: string;
+  hiring?: boolean;
+  founders: string[];
+  memberCount: number;
+  university: string;
+  isJoined?: boolean;
+  createdAt: string;
+}
+
 export type ActiveTab =
   | 'home'
   | 'people'
   | 'projects'
+  | 'startups'
   | 'communities'
   | 'events'
   | 'announcements'

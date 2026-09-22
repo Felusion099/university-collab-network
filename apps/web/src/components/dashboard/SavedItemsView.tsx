@@ -130,7 +130,7 @@ export const SavedItemsView: React.FC = () => {
                       {project.category}
                     </span>
                     <h4
-                      onClick={() => setActiveTab('projects')}
+                      onClick={() => openProjectDetails(item.itemId)}
                       className="font-bold text-xs text-zinc-900 mt-1 hover:underline cursor-pointer"
                     >
                       {project.title}

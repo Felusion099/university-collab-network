@@ -23,11 +23,11 @@ export const DashboardView: React.FC = () => {
     currentUser,
     projects,
     applications,
-    collabRequests,
+    connections,
     portfolio,
     users,
     handleApplicationStatus,
-    handleCollaborationStatus,
+    respondToConnectionRequest,
     setIsProjectCreateOpen,
     setIsPortfolioAddOpen,
     openUserProfile,
@@ -51,14 +51,13 @@ export const DashboardView: React.FC = () => {
   // Applications sent by current user
   const sentApplications = applications.filter((a) => a.applicantId === currentUser.id);
 
-  // Collaboration requests received
-  const incomingCollabRequests = collabRequests.filter(
-    (r) => r.receiverId === currentUser.id
+  // Connection requests received (professional connections — separate from
+  // project collaboration; states drive the UI)
+  const incomingConnectionRequests = connections.filter(
+    (c) => c.addresseeId === currentUser.id && c.status === 'pending'
   );
-
-  // Collaboration requests sent
-  const sentCollabRequests = collabRequests.filter(
-    (r) => r.senderId === currentUser.id
+  const connectedWith = connections.filter(
+    (c) => c.status === 'accepted' && (c.requesterId === currentUser.id || c.addresseeId === currentUser.id)
   );
 
   return (
@@ -117,9 +116,9 @@ export const DashboardView: React.FC = () => {
           <div className="text-[11px] text-zinc-400 mt-0.5">From campus peers</div>
         </div>
         <div className="p-5 bg-white rounded-xl border border-zinc-200 shadow-xs">
-          <div className="text-zinc-500 text-xs font-medium">Collaboration Invites</div>
-          <div className="text-2xl font-bold text-zinc-900 mt-1">{incomingCollabRequests.length}</div>
-          <div className="text-[11px] text-zinc-400 mt-0.5">Pending response</div>
+          <div className="text-zinc-500 text-xs font-medium">Connection Requests</div>
+          <div className="text-2xl font-bold text-zinc-900 mt-1">{incomingConnectionRequests.length}</div>
+          <div className="text-[11px] text-zinc-400 mt-0.5">{connectedWith.length} connected</div>
         </div>
         <div className="p-5 bg-white rounded-xl border border-zinc-200 shadow-xs">
           <div className="text-zinc-500 text-xs font-medium">Portfolio Items</div>
@@ -133,7 +132,7 @@ export const DashboardView: React.FC = () => {
         {[
           { id: 'overview', label: 'All Activities' },
           { id: 'applications', label: `Project Proposals (${incomingApplications.length + sentApplications.length})` },
-          { id: 'collaborations', label: `Direct Invites (${incomingCollabRequests.length})` },
+          { id: 'collaborations', label: `Connections (${incomingConnectionRequests.length})` },
           { id: 'myprojects', label: `My Teams (${myProjects.length})` },
         ].map((sec) => (
           <button
@@ -308,18 +307,18 @@ export const DashboardView: React.FC = () => {
         <div className="mt-8 space-y-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-base font-bold text-zinc-900">
-              Direct Collaboration Invitations ({incomingCollabRequests.length})
+              Connection Requests ({incomingConnectionRequests.length})
             </h3>
-            <span className="text-xs text-zinc-500">Invitations sent directly to you</span>
+            <span className="text-xs text-zinc-500">People who want to connect with you</span>
           </div>
 
-          {incomingCollabRequests.length === 0 ? (
+          {incomingConnectionRequests.length === 0 ? (
             <div className="p-6 bg-zinc-50 rounded-xl border border-zinc-200 text-xs text-zinc-500 text-center">
-              No pending collaboration invitations.
+              No pending connection requests.
             </div>
           ) : (
-            incomingCollabRequests.map((req) => {
-              const sender = users.find((u) => u.id === req.senderId) || users[0];
+            incomingConnectionRequests.map((req) => {
+              const sender = users.find((u) => u.id === req.requesterId);
               return (
                 <div
                   key={req.id}
@@ -342,41 +341,32 @@ export const DashboardView: React.FC = () => {
                           </span>
                           <VerificationBadge verification={sender.verification} size="sm" />
                         </div>
-                        <span className="text-[11px] text-zinc-500 capitalize">
-                          {req.type} Invitation · {sender.department}
+                        <span className="text-[11px] text-zinc-500 truncate">
+                          Wants to connect · {sender?.department}
                         </span>
                       </div>
                     </div>
 
-                    <h4 className="text-xs font-bold text-zinc-900 mt-2">{req.title}</h4>
-                    <p className="text-xs text-zinc-600 mt-1 leading-relaxed">"{req.message}"</p>
+                    {req.message && (
+                      <p className="text-xs text-zinc-600 mt-2 leading-relaxed">"{req.message}"</p>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    {req.status === 'Accepted' ? (
-                      <span className="px-3 py-1.5 bg-emerald-50 text-emerald-800 rounded-lg text-xs font-semibold border border-emerald-200">
-                        Accepted
-                      </span>
-                    ) : req.status === 'Declined' ? (
-                      <span className="px-3 py-1.5 bg-zinc-100 text-zinc-600 rounded-lg text-xs font-medium border border-zinc-200">
-                        Declined
-                      </span>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => handleCollaborationStatus(req.id, 'Declined')}
-                          className="px-3 py-1.5 border border-zinc-200 hover:bg-zinc-50 text-zinc-700 rounded-lg text-xs font-medium"
-                        >
-                          Decline
-                        </button>
-                        <button
-                          onClick={() => handleCollaborationStatus(req.id, 'Accepted')}
-                          className="px-4 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg text-xs font-semibold"
-                        >
-                          Accept Invite
-                        </button>
-                      </>
-                    )}
+                    <>
+                      <button
+                        onClick={() => respondToConnectionRequest(req.id, 'declined')}
+                        className="px-3 py-1.5 border border-zinc-200 hover:bg-zinc-50 text-zinc-700 rounded-lg text-xs font-medium"
+                      >
+                        Decline
+                      </button>
+                      <button
+                        onClick={() => respondToConnectionRequest(req.id, 'accepted')}
+                        className="px-4 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg text-xs font-semibold"
+                      >
+                        Accept
+                      </button>
+                    </>
                   </div>
                 </div>
               );

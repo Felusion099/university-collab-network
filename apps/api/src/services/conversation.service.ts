@@ -1,5 +1,6 @@
 import { prisma } from "../repositories/prisma.js";
 import { conversationRepository } from "../repositories/conversation.repository.js";
+import { connectionRepository } from "../repositories/connection.repository.js";
 import { notificationRepository } from "../repositories/notification.repository.js";
 import { NotFoundError, ForbiddenError, BadRequestError } from "../utils/errors.js";
 import { buildPaginatedResponse, toPageParams } from "../utils/pagination.js";
@@ -24,6 +25,11 @@ export async function openOrCreateDirect(userId: string, targetUserId: string) {
   if (!target) throw new NotFoundError("User not found");
   if (target.status === "suspended" || target.status === "banned") {
     throw new ForbiddenError("This user cannot receive messages");
+  }
+  // Messaging respects the connection system: no accepted connection → no
+  // direct messaging. Enforced server-side — never only in the UI.
+  const connected = await connectionRepository.areConnected(userId, targetUserId);  if (!connected) {
+    throw new ForbiddenError("You must be connected with this user before messaging them");
   }
   const existing = await conversationRepository.findExistingDirect([userId, targetUserId]);
   if (existing) return existing;

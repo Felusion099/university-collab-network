@@ -13,15 +13,26 @@ export async function list(params: {
   skill?: string;
   topic?: string;
   lookingFor?: string;
+  viewerId?: string;
 }) {
   const { skip, take } = toPageParams(params.cursor, params.limit);
   const items = await projectRepository.list({ ...params, skip, take });
   return buildPaginatedResponse(items, skip, take);
 }
 
-export async function getById(id: string) {
+/** Visibility-aware detail: private projects are visible only to the
+ * owner and existing members — enforced server-side (a public/private
+ * post-like behavior; VISIBILITY ≠ MEMBERSHIP ≠ profile visibility). */
+export async function getById(id: string, viewerId?: string) {
   const project = await projectRepository.findById(id);
   if (!project) throw new NotFoundError("Project not found");
+
+  if (project.visibility === "private" && viewerId !== project.createdBy) {
+    const isMember = viewerId ? await projectRepository.isOwnerOrMember(id, viewerId) : false;
+    if (!isMember) {
+      throw new NotFoundError("Project not found");
+    }
+  }
   return project;
 }
 
@@ -34,6 +45,7 @@ export async function create(userId: string, input: CreateProjectRequest) {
       solutionDescription: input.solutionDescription,
       description: input.description,
       status: input.status,
+      visibility: input.visibility,
       githubUrl: input.githubUrl,
       demoUrl: input.demoUrl,
       docsUrl: input.docsUrl,
@@ -62,6 +74,7 @@ export async function update(userId: string, id: string, input: UpdateProjectReq
     solutionDescription: input.solutionDescription,
     description: input.description,
     status: input.status,
+    visibility: input.visibility,
     githubUrl: input.githubUrl,
     demoUrl: input.demoUrl,
     docsUrl: input.docsUrl,
@@ -95,7 +108,27 @@ export async function leave(userId: string, projectId: string) {
     where: { projectId_userId: { projectId, userId } },
   });
   if (!membership) throw new NotFoundError("Membership not found");
+  // The owner cannot "leave" their own project as a normal teammate —
+  // they either continue owning it or archive it (ownership transfer
+  // does not exist in this model).
+  const isOwner = await projectRepository.isOwner(projectId, userId);
+  if (isOwner) throw new ForbiddenError("The project owner cannot leave their own project — archive it instead");
   await prisma.projectMember.delete({ where: { projectId_userId: { projectId, userId } } });
+  return { left: true };
+}
+
+/** Owner removes a teammate — server-authorized (owner-only). The member
+ * can re-request to join per the project's request rules. */
+export async function removeMemberByOwner(ownerId: string, projectId: string, userId: string) {
+  const isOwner = await projectRepository.isOwner(projectId, ownerId);
+  if (!isOwner) throw new ForbiddenError("Only the project owner can remove teammates");
+  if (userId === ownerId) throw new ConflictError("The owner cannot remove themselves — archive the project instead");
+  const membership = await prisma.projectMember.findUnique({
+    where: { projectId_userId: { projectId, userId } },
+  });
+  if (!membership) throw new NotFoundError("That user is not a member of this project");
+  await prisma.projectMember.delete({ where: { projectId_userId: { projectId, userId } } });
+  return { removed: true };
 }
 
 /**

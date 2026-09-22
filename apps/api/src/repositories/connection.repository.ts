@@ -44,6 +44,10 @@ export class ConnectionRepository {
     return conn?.status === "accepted";
   }
 
+  async remove(id: string) {
+    return prisma.connection.delete({ where: { id } });
+  }
+
   async list(userId: string, params: { skip: number; take: number; status?: string }) {
     const where: Prisma.ConnectionWhereInput = {
       OR: [{ requesterId: userId }, { addresseeId: userId }],

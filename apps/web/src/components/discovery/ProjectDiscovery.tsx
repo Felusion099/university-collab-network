@@ -22,6 +22,7 @@ export const ProjectDiscovery: React.FC = () => {
     currentUser,
     applications,
     openUserProfile,
+    openProjectDetails,
     setApplicationTargetProject,
     setIsApplicationModalOpen,
     setIsProjectCreateOpen,
@@ -33,7 +34,6 @@ export const ProjectDiscovery: React.FC = () => {
 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedCollabType, setSelectedCollabType] = useState<string>('all');
-  const [detailProject, setDetailProject] = useState<Project | null>(null);
 
   const categories = ['all', 'Hackathon', 'Research', 'Startup', 'Software', 'Hardware', 'Design'];
 
@@ -208,7 +208,7 @@ export const ProjectDiscovery: React.FC = () => {
 
                   {/* Title */}
                   <h3
-                    onClick={() => setDetailProject(project)}
+                    onClick={() => openProjectDetails(project.id)}
                     className="text-base font-bold text-zinc-900 mt-3 cursor-pointer hover:underline"
                   >
                     {project.title}
@@ -284,7 +284,7 @@ export const ProjectDiscovery: React.FC = () => {
                 {/* Footer Actions */}
                 <div className="mt-5 pt-3 border-t border-zinc-100 flex items-center justify-between gap-3">
                   <button
-                    onClick={() => setDetailProject(project)}
+                    onClick={() => openProjectDetails(project.id)}
                     className="text-xs text-zinc-600 hover:text-zinc-900 font-medium py-1.5"
                   >
                     View Project Details
@@ -325,95 +325,7 @@ export const ProjectDiscovery: React.FC = () => {
         </div>
       )}
 
-      {/* Project Detail Modal */}
-      {detailProject && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/60 backdrop-blur-sm overflow-y-auto"
-          onClick={() => setDetailProject(null)}
-        >
-          <div
-            className="relative w-full max-w-2xl bg-white rounded-2xl border border-zinc-200 shadow-2xl p-6 overflow-y-auto max-h-[90vh]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-4 border-b border-zinc-100 pb-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-semibold uppercase tracking-wider text-[10px] px-2 py-0.5 rounded bg-zinc-900 text-white">
-                    {detailProject.category}
-                  </span>
-                  <span className="text-[11px] px-2 py-0.5 rounded bg-zinc-100 text-zinc-600 border border-zinc-200 font-medium">
-                    {detailProject.collaborationType}
-                  </span>
-                </div>
-                <h2 className="text-xl font-bold text-zinc-900 mt-2">{detailProject.title}</h2>
-              </div>
-              <button
-                onClick={() => setDetailProject(null)}
-                className="text-zinc-400 hover:text-zinc-700 p-1.5 rounded-lg hover:bg-zinc-100"
-              >
-                ✕
-              </button>
-            </div>
 
-            <div className="mt-4 space-y-4 text-xs">
-              <div>
-                <h4 className="font-semibold text-zinc-900 text-sm mb-1">Project Description</h4>
-                <p className="text-zinc-600 leading-relaxed">{detailProject.description}</p>
-              </div>
-
-              <div>
-                <h4 className="font-semibold text-zinc-900 text-sm mb-1.5">Open Roles</h4>
-                <div className="flex flex-wrap gap-2">
-                  {detailProject.requiredRoles.map((role, i) => (
-                    <span
-                      key={`${role}-${i}`}
-                      className="px-3 py-1 bg-blue-50 border border-blue-200 text-blue-800 rounded-lg font-medium"
-                    >
-                      {role}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-semibold text-zinc-900 text-sm mb-1.5">Key Requirements</h4>
-                <ul className="list-disc pl-5 space-y-1 text-zinc-600">
-                  {detailProject.requirements.map((req, idx) => (
-                    <li key={idx}>{req}</li>
-                  ))}
-                </ul>
-              </div>
-
-              <div>
-                <h4 className="font-semibold text-zinc-900 text-sm mb-1.5">Required Skills</h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {detailProject.skillsRequired.map((skill) => (
-                    <SkillBadge key={skill} skill={skill} size="sm" />
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-zinc-100 flex items-center justify-between">
-                <span className="text-zinc-500">
-                  Deadline: <strong className="text-zinc-900">{detailProject.deadline}</strong>
-                </span>
-
-                <button
-                  onClick={() => {
-                    const p = detailProject;
-                    setDetailProject(null);
-                    setApplicationTargetProject(p);
-                    setIsApplicationModalOpen(true);
-                  }}
-                  className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg font-medium"
-                >
-                  Submit Collaboration Proposal
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );

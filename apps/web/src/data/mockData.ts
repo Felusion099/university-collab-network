@@ -341,6 +341,7 @@ export const INITIAL_PROJECTS: Project[] = [
     ],
     maxTeamSize: 4,
     deadline: 'October 15, 2026',
+    visibility: 'public',
     collaborationType: 'Hybrid',
     requirements: [
       'Experience with Python / NumPy or PyTorch',
@@ -365,6 +366,7 @@ export const INITIAL_PROJECTS: Project[] = [
     ],
     maxTeamSize: 5,
     deadline: 'Rolling Admission / Fall Term',
+    visibility: 'public',
     collaborationType: 'In-person',
     requirements: [
       'Strong proficiency in C++ and Unix environments',
@@ -388,6 +390,7 @@ export const INITIAL_PROJECTS: Project[] = [
     ],
     maxTeamSize: 4,
     deadline: 'November 1, 2026',
+    visibility: 'public',
     collaborationType: 'Hybrid',
     requirements: [
       'Ability to build clean REST/GraphQL services or cross-platform mobile apps',
@@ -410,6 +413,7 @@ export const INITIAL_PROJECTS: Project[] = [
     ],
     maxTeamSize: 3,
     deadline: 'October 30, 2026',
+    visibility: 'public',
     collaborationType: 'Remote',
     requirements: [
       'Familiarity with graph neural networks (PyG or DGL)',

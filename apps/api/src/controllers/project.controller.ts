@@ -13,7 +13,17 @@ export async function list(req: Request, res: Response, next: NextFunction): Pro
     const { status, skill, topic, lookingFor } = req.query as Record<string, string | undefined>;
     res
       .status(200)
-      .json(await projectService.list({ cursor, limit, status, skill, topic, lookingFor }));
+      .json(
+        await projectService.list({
+          cursor,
+          limit,
+          status,
+          skill,
+          topic,
+          lookingFor,
+          viewerId: req.user?.id,
+        }),
+      );
   } catch (err: unknown) {
     next(err);
   }
@@ -21,7 +31,9 @@ export async function list(req: Request, res: Response, next: NextFunction): Pro
 
 export async function getById(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    res.status(200).json(await projectService.getById(req.params.id as string));
+    res
+      .status(200)
+      .json(await projectService.getById(req.params.id as string, req.user?.id));
   } catch (err: unknown) {
     next(err);
   }
@@ -53,6 +65,20 @@ export async function remove(req: Request, res: Response, next: NextFunction): P
   try {
     await projectService.remove(req.user!.id, req.params.id as string);
     res.status(204).send();
+  } catch (err: unknown) {
+    next(err);
+  }
+}
+
+/** DELETE /projects/:id/members/:userId — owner removes a teammate (server-authorized). */
+export async function removeMember(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    await projectService.removeMemberByOwner(
+      req.user!.id,
+      req.params.id as string,
+      req.params.userId as string,
+    );
+    res.status(200).json({ removed: true });
   } catch (err: unknown) {
     next(err);
   }

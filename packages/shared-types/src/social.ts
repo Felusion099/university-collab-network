@@ -9,7 +9,9 @@ export type ConnectionStatus = z.infer<typeof ConnectionStatusEnum>;
 
 export const CreateConnectionRequestSchema = z.object({
   addresseeId: z.string().uuid(),
-  message: z.string().min(1, "A short note on why you'd like to connect is required"),
+  // Optional context note — the product keeps this lightweight; the rate
+  // limit (3 requests/week/pair, server-side) is the real protection.
+  message: z.string().max(500).optional(),
 });
 export type CreateConnectionRequest = z.infer<typeof CreateConnectionRequestSchema>;
 

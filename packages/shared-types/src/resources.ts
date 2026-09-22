@@ -171,6 +171,9 @@ export type ProjectStatus = z.infer<typeof ProjectStatusEnum>;
 export const CreateProjectRequestSchema = z.object({
   name: z.string().min(1),
   logoUrl: z.string().url().nullable().optional(),
+  // Public/private post-like visibility — private projects are visible only
+  // to the owner and existing members (server-enforced in list/getById)
+  visibility: z.enum(["public", "private"]).optional(),
   problemStatement: z.string().optional(),
   solutionDescription: z.string().optional(),
   description: z.string().optional(),

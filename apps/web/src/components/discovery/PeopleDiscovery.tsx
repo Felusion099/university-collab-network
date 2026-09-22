@@ -11,6 +11,9 @@ import {
   ExternalLink,
   BookOpen,
   FolderGit2,
+  CheckCircle2,
+  Clock,
+  UserPlus,
 } from 'lucide-react';
 import { UserRole } from '../../types';
 
@@ -22,6 +25,9 @@ export const PeopleDiscovery: React.FC = () => {
     startConversationWithUser,
     setCollabTargetUser,
     setIsCollabModalOpen,
+    connections,
+    cancelConnectionRequest,
+    respondToConnectionRequest,
     toggleSaveItem,
     isItemSaved,
     currentUser,
@@ -312,27 +318,84 @@ export const PeopleDiscovery: React.FC = () => {
                   </button>
 
                   <div className="flex items-center gap-1.5">
-                    {!isSelf && (
-                      <>
-                        <button
-                          onClick={() => startConversationWithUser(user.id)}
-                          className="p-1.5 rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 transition-colors"
-                          title="Send direct message"
-                        >
-                          <MessageSquare className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setCollabTargetUser(user);
-                            setIsCollabModalOpen(true);
-                          }}
-                          className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
-                        >
-                          <Sparkles className="w-3 h-3 text-amber-300" />
-                          <span>Collaborate</span>
-                        </button>
-                      </>
-                    )}
+                    {!isSelf && (() => {
+                      // Connection states (professional connections — separate
+                      // from follows/project collaboration/messaging)
+                      const conn = connections.find(
+                        (c) =>
+                          (c.requesterId === currentUser.id && c.addresseeId === user.id) ||
+                          (c.addresseeId === currentUser.id && c.requesterId === user.id),
+                      );
+                      const outgoingPending = conn?.status === 'pending' && conn.requesterId === currentUser.id;
+                      const incomingPending = conn?.status === 'pending' && conn.addresseeId === currentUser.id;
+                      const connected = conn?.status === 'accepted';
+                      const incomingFromMe = conn?.status === 'pending' && conn.addresseeId === currentUser.id;
+
+                      if (connected) {
+                        return (
+                          <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-800 rounded-lg text-xs font-semibold border border-emerald-200">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            Connected
+                          </span>
+                        );
+                      }
+                      if (outgoingPending) {
+                        return (
+                          <button
+                            onClick={() => cancelConnectionRequest(conn!.id)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-50 text-amber-800 rounded-lg text-xs font-medium border border-amber-200 hover:bg-amber-100 transition-colors"
+                            title="Cancel your connection request"
+                          >
+                            <Clock className="w-3.5 h-3.5" />
+                            Request Sent
+                          </button>
+                        );
+                      }
+                      if (incomingPending) {
+                        return (
+                          <>
+                            <button
+                              onClick={() => respondToConnectionRequest(conn!.id, 'declined')}
+                              className="px-2.5 py-1.5 border border-zinc-200 text-zinc-600 hover:bg-zinc-50 rounded-lg text-xs font-medium transition-colors"
+                            >
+                              Decline
+                            </button>
+                            <button
+                              onClick={() => respondToConnectionRequest(conn!.id, 'accepted')}
+                              className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg text-xs font-semibold transition-colors"
+                            >
+                              Accept
+                            </button>
+                          </>
+                        );
+                      }
+                      return (
+                        <>
+                          <button
+                            onClick={() => startConversationWithUser(user.id)}
+                            className={
+                              incomingFromMe
+                                ? 'p-1.5 rounded-lg border border-zinc-200 text-zinc-400 cursor-not-allowed'
+                                : 'p-1.5 rounded-lg border border-zinc-200 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 transition-colors'
+                            }
+                            title={incomingFromMe ? 'Their request is waiting for you — accept to message' : 'Connect to send a direct message'}
+                            disabled={incomingFromMe}
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setCollabTargetUser(user);
+                              setIsCollabModalOpen(true);
+                            }}
+                            className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg text-xs font-medium transition-colors flex items-center gap-1"
+                          >
+                            <UserPlus className="w-3 h-3" />
+                            <span>Connect</span>
+                          </button>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>

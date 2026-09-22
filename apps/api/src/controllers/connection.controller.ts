@@ -39,3 +39,13 @@ export async function list(req: Request, res: Response, next: NextFunction): Pro
     next(err);
   }
 }
+
+/** DELETE /connections/:id — cancel an outgoing pending request (sender only). */
+export async function cancel(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const result = await connectionService.cancel(req.user!.id, req.params.id as string);
+    res.status(200).json(result);
+  } catch (err: unknown) {
+    next(err);
+  }
+}

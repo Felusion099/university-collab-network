@@ -8,19 +8,31 @@ import {
 import { validateBody, validateQuery } from "../validators/validate.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { requireProfessorVerified, requireProfessorOwnership } from "../middleware/requireProfessorOwnership.js";
+import { optionalAuth } from "../middleware/optionalAuth.js";
 import * as controller from "../controllers/project.controller.js";
 import * as joinRequests from "../controllers/joinRequest.controller.js";
 
 const router = Router();
 
-router.get("/", validateQuery(PaginationQuerySchema), controller.list);
-router.get("/:id", controller.getById);
+// The parsed query must carry every filter (validateQuery replaces
+// req.query — unknown keys are stripped)
+const ProjectListQuerySchema = PaginationQuerySchema.extend({
+  status: z.string().optional(),
+  skill: z.string().optional(),
+  topic: z.string().optional(),
+  lookingFor: z.string().optional(),
+});
+
+router.get("/", optionalAuth, validateQuery(ProjectListQuerySchema), controller.list);
+router.get("/:id", optionalAuth, controller.getById);
 router.post("/", requireAuth, validateBody(CreateProjectRequestSchema), controller.create);
 router.patch("/:id", requireAuth, validateBody(UpdateProjectRequestSchema), controller.update);
 router.delete("/:id", requireAuth, controller.remove);
 router.post("/:id/join", requireAuth, controller.join);
 router.post("/:id/leave", requireAuth, controller.leave);
 router.get("/:id/matches", requireAuth, controller.matches);
+// Owner removes a teammate — server-authorized (owner-only)
+router.delete("/:id/members/:userId", requireAuth, controller.removeMember);
 
 // ============================================================================
 // PROFESSOR PROJECT ENDPOINTS (Phase 9+)

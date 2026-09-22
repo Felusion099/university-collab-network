@@ -20,6 +20,8 @@ import {
   CheckCircle2,
   FolderGit2,
   Layers,
+  Clock,
+  UserPlus,
 } from 'lucide-react';
 import { PortfolioItem } from '../../types';
 
@@ -31,8 +33,12 @@ export const UserProfileModal: React.FC = () => {
     currentUser,
     portfolio,
     projects,
+    openProjectDetails,
     startConversationWithUser,
     setCollabTargetUser,
+    connections,
+    respondToConnectionRequest,
+    cancelConnectionRequest,
     setIsCollabModalOpen,
     setIsProfileEditOpen,
     setIsPortfolioAddOpen,
@@ -136,26 +142,88 @@ export const UserProfileModal: React.FC = () => {
                   >
                     <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
                   </button>
-                  <button
-                    onClick={() => {
-                      setSelectedUserId(null);
-                      startConversationWithUser(user.id);
-                    }}
-                    className="px-3.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50 text-xs font-medium flex items-center gap-1.5 shadow-xs"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5" />
-                    <span>Message</span>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setCollabTargetUser(user);
-                      setIsCollabModalOpen(true);
-                    }}
-                    className="px-4 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium flex items-center gap-1.5 shadow-xs"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                    <span>Request Collaboration</span>
-                  </button>
+                  {(() => {
+                    // Relationship state drives the profile's actions —
+                    // professional connections are separate from collaboration
+                    const conn = connections.find(
+                      (c) =>
+                        (c.requesterId === currentUser.id && c.addresseeId === user.id) ||
+                        (c.addresseeId === currentUser.id && c.requesterId === user.id),
+                    );
+                    const connected = conn?.status === 'accepted';
+                    const outgoingPending = conn?.status === 'pending' && conn.requesterId === currentUser.id;
+                    const incomingPending = conn?.status === 'pending' && conn.addresseeId === currentUser.id;
+
+                    return (
+                      <>
+                        <button
+                          onClick={() => toggleSaveItem('person', user.id)}
+                          className={`p-2 rounded-lg border transition-colors ${
+                            isSaved
+                              ? 'border-blue-200 bg-blue-50 text-blue-600'
+                              : 'border-zinc-200 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-50'
+                          }`}
+                          title={isSaved ? 'Saved' : 'Save member'}
+                        >
+                          <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
+                        </button>
+
+                        {connected ? (
+                          <>
+                            <button
+                              onClick={() => {
+                                setSelectedUserId(null);
+                                startConversationWithUser(user.id);
+                              }}
+                              className="px-3.5 py-1.5 rounded-lg border border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50 text-xs font-medium flex items-center gap-1.5 shadow-xs"
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" />
+                              <span>Message</span>
+                            </button>
+                            <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-800 rounded-lg text-xs font-semibold border border-emerald-200">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              Connected
+                            </span>
+                          </>
+                        ) : outgoingPending ? (
+                          <button
+                            onClick={() => cancelConnectionRequest(conn!.id)}
+                            className="inline-flex items-center gap-1 px-3.5 py-1.5 bg-amber-50 text-amber-800 rounded-lg text-xs font-medium border border-amber-200 hover:bg-amber-100"
+                            title="Cancel your connection request"
+                          >
+                            <Clock className="w-3.5 h-3.5" />
+                            Request Sent
+                          </button>
+                        ) : incomingPending ? (
+                          <>
+                            <button
+                              onClick={() => respondToConnectionRequest(conn!.id, 'declined')}
+                              className="px-3 py-1.5 rounded-lg border border-zinc-200 text-zinc-700 hover:bg-zinc-50 text-xs font-medium"
+                            >
+                              Decline
+                            </button>
+                            <button
+                              onClick={() => respondToConnectionRequest(conn!.id, 'accepted')}
+                              className="px-4 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold"
+                            >
+                              Accept Connection
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setCollabTargetUser(user);
+                              setIsCollabModalOpen(true);
+                            }}
+                            className="px-4 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-medium flex items-center gap-1.5 shadow-xs"
+                          >
+                            <UserPlus className="w-3.5 h-3.5" />
+                            <span>Connect</span>
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()}
                 </>
               )}
             </div>
@@ -343,29 +411,54 @@ export const UserProfileModal: React.FC = () => {
             </div>
           )}
 
-          {/* TAB 4: Teams & Projects */}
+          {/* TAB 4: Teams & Projects — public projects of other users open
+              the full project detail view (visibility respected) */}
           {activeProfileTab === 'projects' && (
             <div className="space-y-4">
               {userProjects.map((p) => (
                 <div
                   key={p.id}
-                  className="bg-white p-5 rounded-xl border border-zinc-200 flex items-center justify-between"
+                  className="bg-white p-5 rounded-xl border border-zinc-200 flex items-center justify-between hover:border-zinc-900/20 transition"
                 >
-                  <div>
+                  <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-zinc-900 text-white">
                         {p.category}
                       </span>
+                      {p.visibility === 'private' && (
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-600 border border-zinc-200">
+                          Private
+                        </span>
+                      )}
                       <span className="text-xs text-zinc-500">Deadline: {p.deadline}</span>
                     </div>
-                    <h4 className="font-bold text-xs text-zinc-900 mt-1">{p.title}</h4>
+                    <h4
+                      onClick={() => {
+                        setSelectedUserId(null);
+                        openProjectDetails(p.id);
+                      }}
+                      className="font-bold text-xs text-zinc-900 mt-1 hover:underline cursor-pointer line-clamp-1"
+                    >
+                      {p.title}
+                    </h4>
                     <p className="text-xs text-zinc-600 line-clamp-1 mt-0.5">{p.description}</p>
                   </div>
-                  <div className="text-xs text-zinc-500 font-medium shrink-0 ml-4">
-                    {p.currentTeam.length} / {p.maxTeamSize} Members
-                  </div>
+                  <button
+                    onClick={() => {
+                      setSelectedUserId(null);
+                      openProjectDetails(p.id);
+                    }}
+                    className="text-xs font-semibold text-zinc-900 hover:underline shrink-0 ml-4"
+                  >
+                    View Project →
+                  </button>
                 </div>
               ))}
+              {userProjects.length === 0 && (
+                <p className="text-xs text-zinc-400 text-center py-6">
+                  {isSelf ? 'You have no projects yet — post one to get started.' : 'No public projects yet.'}
+                </p>
+              )}
             </div>
           )}
 

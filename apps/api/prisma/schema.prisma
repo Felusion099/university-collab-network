@@ -8,72 +8,74 @@ datasource db {
 }
 
 model User {
-  id                         String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email                      String                    @unique
+  id                         String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                      String                     @unique
   /// Added per DECISIONS.md D-013 — API_CONTRACT.md §2's `GET /users/:username`
   /// had no backing column. Server-generated at signup (email local-part,
   /// de-duplicated), never user-chosen in this MVP pass.
-  username                   String                    @unique
+  username                   String                     @unique
   /// Added per DECISIONS.md D-018 — PROJECT_SPEC.md §7 lists `phone` as its
   /// own independently-settable privacy field (distinct from `contact info`),
   /// and `privacy_settings.phone_visibility` already existed to gate it, but
   /// no `phone` data column existed anywhere for that toggle to apply to.
   phone                      String?
-  passwordHash               String                    @map("password_hash")
-  requestedRole              UserRole                  @map("requested_role")
-  status                     UserStatus                @default(pending_verification)
-  isUniversityVerified       Boolean                   @default(false) @map("is_university_verified")
-  universityDomain           String?                   @map("university_domain")
-  avatarUrl                  String?                   @map("avatar_url")
+  passwordHash               String                     @map("password_hash")
+  requestedRole              UserRole                   @map("requested_role")
+  status                     UserStatus                 @default(pending_verification)
+  isUniversityVerified       Boolean                    @default(false) @map("is_university_verified")
+  universityDomain           String?                    @map("university_domain")
+  avatarUrl                  String?                    @map("avatar_url")
   /// GOALS (shared onboarding step) — what the user wants right now.
   /// Distinct from INTERESTS (user_research_topics) and SKILLS
   /// (user_skills): goals drive discovery, not identity. jsonb array of
   /// GoalsEnum values, validated at the Zod/service layer.
-  goals                      Json?                     @map("goals")
+  goals                      Json?                      @map("goals")
   /// New-user onboarding completion marker (NULL = onboarding not yet
   /// completed). A single nullable timestamp — deliberately NOT an enum or
   /// separate state machine: profile rows always exist post-signup (created
   /// in auth.service.ts#signup) and UserStatus has no onboarding semantics,
   /// so no existing field could represent "onboarding incomplete" without a
   /// fragile data heuristic. See DECISIONS.md (onboarding-state decision).
-  onboardingCompletedAt      DateTime?                 @map("onboarding_completed_at")
-  isSeed                     Boolean                   @default(false) @map("is_seed")
-  createdAt                  DateTime                  @default(now()) @map("created_at")
-  updatedAt                  DateTime                  @updatedAt @map("updated_at")
+  onboardingCompletedAt      DateTime?                  @map("onboarding_completed_at")
+  isSeed                     Boolean                    @default(false) @map("is_seed")
+  createdAt                  DateTime                   @default(now()) @map("created_at")
+  updatedAt                  DateTime                   @updatedAt @map("updated_at")
   applications               Application[]
-  connectionsReceived        Connection[]              @relation("ConnectionAddressee")
-  connectionsSent            Connection[]              @relation("ConnectionRequester")
+  connectionsReceived        Connection[]               @relation("ConnectionAddressee")
+  connectionsSent            Connection[]               @relation("ConnectionRequester")
+  connectionHistorySent      ConnectionRequestHistory[] @relation("ConnectionHistoryRequester")
+  connectionHistoryReceived  ConnectionRequestHistory[] @relation("ConnectionHistoryAddressee")
   conversationParticipations ConversationParticipant[]
   eventParticipations        EventParticipant[]
-  followedBy                 Follow[]                  @relation("Followee")
-  following                  Follow[]                  @relation("Follower")
+  followedBy                 Follow[]                   @relation("Followee")
+  following                  Follow[]                   @relation("Follower")
   memberships                Membership[]
   messagesSent               Message[]
   notificationPreferences    NotificationPreferences?
   notifications              Notification[]
-  organizationsCreated       Organization[]            @relation("OrganizationCreatedBy")
-  organizationsAdvised       Organization[]            @relation("OrganizationFacultyAdvisor")
+  organizationsCreated       Organization[]             @relation("OrganizationCreatedBy")
+  organizationsAdvised       Organization[]             @relation("OrganizationFacultyAdvisor")
   privacySettings            PrivacySettings?
   professorProfile           ProfessorProfile?
   projectMemberships         ProjectMember[]
-  projectsCreated            Project[]                 @relation("ProjectCreatedBy")
+  projectsCreated            Project[]                  @relation("ProjectCreatedBy")
   publicationAuthorships     PublicationAuthor[]
   refreshTokens              RefreshToken[]
-  reportsFiled               Report[]                  @relation("ReportReporter")
-  reportsReviewed            Report[]                  @relation("ReportReviewedBy")
-  researchTeamsCreated       ResearchTeam[]            @relation("ResearchTeamCreatedBy")
-  researchTeamsLed           ResearchTeam[]            @relation("ResearchTeamPI")
+  reportsFiled               Report[]                   @relation("ReportReporter")
+  reportsReviewed            Report[]                   @relation("ReportReviewedBy")
+  researchTeamsCreated       ResearchTeam[]             @relation("ResearchTeamCreatedBy")
+  researchTeamsLed           ResearchTeam[]             @relation("ResearchTeamPI")
   researcherProfile          ResearcherProfile?
   studentProfile             StudentProfile?
-  professionalProfile        ProfessionalProfile?      @relation("ProfessionalProfile")
+  professionalProfile        ProfessionalProfile?       @relation("ProfessionalProfile")
   userResearchTopics         UserResearchTopic[]
   userSkills                 UserSkill[]
-  verificationsReviewed      Verification[]            @relation("VerificationReviewer")
-  verificationsClaimed       Verification[]            @relation("VerificationSubject")
+  verificationsReviewed      Verification[]             @relation("VerificationReviewer")
+  verificationsClaimed       Verification[]             @relation("VerificationSubject")
   joinRequests               JoinRequest[]
-  groupsOwned                Group[]                   @relation("GroupOwner")
-  groupMemberships           GroupMember[]             @relation("GroupMemberships")
-  groupInviteLinksCreated    GroupInviteLink[]         @relation("GroupInviteLinkCreator")
+  groupsOwned                Group[]                    @relation("GroupOwner")
+  groupMemberships           GroupMember[]              @relation("GroupMemberships")
+  groupInviteLinksCreated    GroupInviteLink[]          @relation("GroupInviteLinkCreator")
 
   @@index([status])
   @@map("users")
@@ -954,7 +956,6 @@ enum SkillRoleNeeded {
   other
 }
 
-
 enum SkillProficiency {
   beginner
   intermediate
@@ -1067,4 +1068,23 @@ enum ReportAction {
   ban
 }
 
+// ============================================================================
+// Connection request history — the authoritative record for the server-side
+// rate limit (max 3 connection requests per week to the same person). One
+// row per REQUEST EVENT (every POST /connections logs here), so repeated
+// cancel-and-recreate cycles count toward the limit. Declined/cancelled
+// pairs return to "no connection" but their request history remains.
+// ============================================================================
 
+model ConnectionRequestHistory {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requesterId String   @map("requester_id") @db.Uuid
+  addresseeId String   @map("addressee_id") @db.Uuid
+  isSeed      Boolean  @default(false) @map("is_seed")
+  createdAt   DateTime @default(now()) @map("created_at")
+  requester   User     @relation("ConnectionHistoryRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  addressee   User     @relation("ConnectionHistoryAddressee", fields: [addresseeId], references: [id], onDelete: Cascade)
+
+  @@index([requesterId, addresseeId, createdAt])
+  @@map("connection_request_history")
+}

@@ -14,7 +14,7 @@ import type {
   Message,
   NotificationItem,
   ProjectApplication,
-  CollaborationRequest,
+  Connection,
 } from '../../types';
 
 /* ============================================================================
@@ -25,7 +25,7 @@ import type {
 
 type AnyRow = Record<string, unknown>;
 
-const str = (v: unknown, fallback = ''): string =>
+export const str = (v: unknown, fallback = ''): string =>
   typeof v === 'string' ? v : fallback;
 
 const num = (v: unknown, fallback = 0): number =>
@@ -246,6 +246,7 @@ export function mapApiProject(raw: AnyRow): Project {
     requirements,
     tags: tagsFromTopics,
     createdAt: str(raw.createdAt, new Date().toISOString()).slice(0, 10),
+    visibility: str(raw.visibility) === 'private' ? 'private' : 'public',
   };
 }
 
@@ -422,35 +423,18 @@ export function mapApiJoinRequestAsApplication(raw: AnyRow, forProject: boolean)
 
 /* -------------------------- Collaboration requests ----------------------- */
 
-export function mapApiConnectionAsCollabRequest(raw: AnyRow): CollaborationRequest {
+export function mapApiConnection(raw: AnyRow): Connection {
   const requester = (raw.requester ?? raw.requesterUser ?? {}) as AnyRow;
   const addressee = (raw.addressee ?? raw.addresseeUser ?? {}) as AnyRow;
-  const message = str(raw.message);
-
-  // The Campus UI packs "[type] title: message" into the connection note —
-  // unpack it here for the invites UI.
-  let type: CollaborationRequest['type'] = 'project';
-  let title = 'Collaboration Request';
-  let bodyText = message;
-  const m = /^\[(hackathon|research|project|mentorship)\]\s*([^:]+):\s*([\s\S]*)$/.exec(message);
-  if (m) {
-    type = m[1] as CollaborationRequest['type'];
-    title = m[2]!.trim();
-    bodyText = m[3]!.trim();
-  }
-
   const status = str(raw.status, 'pending');
-  const statusLabel =
-    status === 'accepted' ? 'Accepted' : status === 'declined' ? 'Declined' : 'Pending';
+  const allowed = ['pending', 'accepted', 'declined', 'blocked'];
 
   return {
     id: String(raw.id),
-    senderId: String(requester.id ?? ''),
-    receiverId: String(addressee.id ?? ''),
-    type,
-    title,
-    message: bodyText,
-    status: statusLabel,
+    requesterId: String(requester.id ?? ''),
+    addresseeId: String(addressee.id ?? ''),
+    status: (allowed.includes(status) ? status : 'pending') as Connection['status'],
+    message: str(raw.message),
     createdAt: str(raw.createdAt, new Date().toISOString()).slice(0, 10),
   };
 }

@@ -7,7 +7,8 @@ import {
   CampusEvent,
   CouncilAnnouncement,
   ProjectApplication,
-  CollaborationRequest,
+  Connection,
+  Startup,
   Conversation,
   Message,
   NotificationItem,
@@ -38,8 +39,13 @@ import {
   liveJoinCommunity,
   liveLeaveCommunity,
   liveUpdateProfile,
-  liveSendCollaborationRequest,
-  liveHandleCollaborationStatus,
+  liveSendConnectionRequest,
+  liveRespondToConnectionRequest,
+  liveCancelConnectionRequest,
+  liveUpdateProject,
+  liveDeleteProject,
+  liveLeaveProject,
+  liveRemoveProjectMember,
   liveMarkNotificationRead,
   liveMarkAllNotificationsRead,
   liveMarkConversationRead,
@@ -77,6 +83,8 @@ interface AppContextType {
   // Modals state
   isProjectCreateOpen: boolean;
   setIsProjectCreateOpen: (v: boolean) => void;
+  isProjectEditOpen: boolean;
+  setIsProjectEditOpen: (v: boolean) => void;
   isProfileEditOpen: boolean;
   setIsProfileEditOpen: (v: boolean) => void;
   isPortfolioAddOpen: boolean;
@@ -97,7 +105,8 @@ interface AppContextType {
   events: CampusEvent[];
   announcements: CouncilAnnouncement[];
   applications: ProjectApplication[];
-  collabRequests: CollaborationRequest[];
+  connections: Connection[];
+  startups: Startup[];
   conversations: Conversation[];
   messages: Message[];
   notifications: NotificationItem[];
@@ -112,8 +121,13 @@ interface AppContextType {
   createProject: (data: Omit<Project, 'id' | 'createdAt' | 'ownerId' | 'currentTeam'>) => void;
   applyToProject: (data: { projectId: string; roleApplied: string; message: string; relevantSkills: string[]; portfolioLinks: string[]; proposedTimeline: string }) => void;
   handleApplicationStatus: (applicationId: string, status: 'Accepted' | 'Rejected' | 'Shortlisted') => void;
-  sendCollaborationRequest: (data: { receiverId: string; type: 'hackathon' | 'research' | 'project' | 'mentorship'; title: string; message: string }) => void;
-  handleCollaborationStatus: (requestId: string, status: 'Accepted' | 'Declined') => void;
+  sendConnectionRequest: (receiverId: string, message?: string) => void;
+  respondToConnectionRequest: (requestId: string, status: 'accepted' | 'declined') => void;
+  cancelConnectionRequest: (requestId: string) => void;
+  updateProject: (projectId: string, updates: Partial<Project>) => void;
+  deleteProject: (projectId: string) => void;
+  leaveProject: (projectId: string) => void;
+  removeProjectMember: (projectId: string, userId: string) => void;
   addPortfolioItem: (data: Omit<PortfolioItem, 'id' | 'userId'>) => void;
   updateUserProfile: (updates: Partial<User>) => void;
   toggleSaveItem: (itemType: SavedItem['itemType'], itemId: string) => void;
@@ -197,6 +211,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; mode?: 'live' | 
 
   // Modal visibilities
   const [isProjectCreateOpen, setIsProjectCreateOpen] = useState(false);
+  const [isProjectEditOpen, setIsProjectEditOpen] = useState(false);
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const [isPortfolioAddOpen, setIsPortfolioAddOpen] = useState(false);
   const [isCollabModalOpen, setIsCollabModalOpen] = useState(false);
@@ -243,23 +258,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode; mode?: 'live' | 
           },
         ];
   });
-  const [collabRequests, setCollabRequests] = useState<CollaborationRequest[]>(() => {
+  const [startups, setStartups] = useState<Startup[]>(() =>
+    isLive ? [] : load('ucn_startups', []),
+  );
+  const [connections, setConnections] = useState<Connection[]>(() => {
     if (isLive) return [];
-    const saved = localStorage.getItem('ucn_collab_requests');
+    const saved = localStorage.getItem('ucn_connections_state');
     return saved
       ? JSON.parse(saved)
       : [
-          {
-            id: 'cr1',
-            senderId: 'u4',
-            receiverId: 'u1',
-            type: 'research',
-            title: 'Cloud Distributed Sampling for Molecular Graph Models',
-            message: 'Would you be interested in helping architect our PyTorch Geometric mini-batch worker pipeline on AWS/GCP for an upcoming workshop submission?',
-            status: 'Pending',
-            createdAt: '2026-09-18',
-          },
-        ];
+          { id: 'cr1', requesterId: 'u4', addresseeId: 'u1', status: 'pending', message: 'Interested in helping architect the PyTorch Geometric mini-batch worker pipeline for an upcoming workshop submission?', createdAt: '2026-09-18' },
+          { id: 'cr2', requesterId: 'u2', addresseeId: 'u1', status: 'accepted', message: 'Loved your high-contrast component library work — let us connect.', createdAt: '2026-09-16' },
+        ] as Connection[];
   });
   const [conversations, setConversations] = useState<Conversation[]>(() =>
     isLive ? [] : load('ucn_conversations', INITIAL_CONVERSATIONS),
@@ -293,7 +303,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode; mode?: 'live' | 
         setEvents(data.events);
         setAnnouncements(data.announcements);
         setApplications(data.applications);
-        setCollabRequests(data.collabRequests);
+        setConnections(data.connections);
+        setStartups(data.startups);
         setConversations(data.conversations);
         setMessages(data.messages);
         setNotifications(data.notifications);
@@ -434,8 +445,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode; mode?: 'live' | 
     if (!isLive) sync('ucn_applications', applications);
   }, [applications, isLive]);
   useEffect(() => {
-    if (!isLive) sync('ucn_collab_requests', collabRequests);
-  }, [collabRequests, isLive]);
+    if (!isLive) sync('ucn_connections_state', connections);
+  }, [connections, isLive]);
+  useEffect(() => {
+    if (!isLive) sync('ucn_startups', startups);
+  }, [startups, isLive]);
   useEffect(() => {
     if (!isLive) sync('ucn_conversations', conversations);
   }, [conversations, isLive]);
@@ -487,7 +501,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode; mode?: 'live' | 
           setActiveConversationId(conv.id);
           setActiveTab('messages');
         })
-        .catch(() => showToast('Could not start the conversation. Is the API running?', 'error'));
+        .catch((err) => {
+          const msg =
+            err && typeof err === 'object' && 'message' in err && (err as Error).message
+              ? (err as Error).message
+              : 'Could not start the conversation.';
+          showToast(msg, 'error');
+        });
       return;
     }
 
@@ -766,20 +786,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode; mode?: 'live' | 
     }
   };
 
-  const sendCollaborationRequest = (data: {
-    receiverId: string;
-    type: 'hackathon' | 'research' | 'project' | 'mentorship';
-    title: string;
-    message: string;
-  }) => {
+  /** Professional connection request — SEPARATE from project collaboration.
+   * The API enforces the 3-requests/week rate limit and one pending request
+   * per pair; declined pairs can re-request (the history remains). */
+  const sendConnectionRequest = (receiverId: string, message?: string) => {
+    if (receiverId === currentUser.id) return;
     if (isLive) {
-      liveSendCollaborationRequest(data)
+      liveSendConnectionRequest(receiverId, message)
         .then((created) => {
-          setCollabRequests((prev) => [
-            { ...created, senderId: currentUser.id },
-            ...prev,
-          ]);
-          showToast('Collaboration request sent.');
+          setConnections((prev) => {
+            const existing = prev.findIndex((c) => c.id === created.id);
+            if (existing >= 0) {
+              const next = [...prev];
+              next[existing] = created;
+              return next;
+            }
+            return [created, ...prev];
+          });
+          showToast('Connection request sent.');
         })
         .catch((err) => {
           const msg =
@@ -791,25 +815,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode; mode?: 'live' | 
       return;
     }
 
-    const newReq: CollaborationRequest = {
+    const newConn: Connection = {
       id: `cr_${Date.now()}`,
-      senderId: currentUser.id,
-      receiverId: data.receiverId,
-      type: data.type,
-      title: data.title,
-      message: data.message,
-      status: 'Pending',
+      requesterId: currentUser.id,
+      addresseeId: receiverId,
+      status: 'pending',
+      message: message ?? '',
       createdAt: new Date().toISOString().split('T')[0],
     };
-
-    setCollabRequests((prev) => [newReq, ...prev]);
+    setConnections((prev) => [newConn, ...prev]);
 
     const notif: NotificationItem = {
       id: `notif_cr_${Date.now()}`,
-      userId: data.receiverId,
+      userId: receiverId,
       type: 'collab_request',
-      title: 'Collaboration Invitation',
-      description: `${currentUser.name} sent you a collaboration request: "${data.title}"`,
+      title: 'Connection Request',
+      description: `${currentUser.name} wants to connect with you.`,
       timestamp: 'Just now',
       isRead: false,
       linkTab: 'dashboard',
@@ -817,35 +838,143 @@ export const AppProvider: React.FC<{ children: React.ReactNode; mode?: 'live' | 
     setNotifications((prev) => [notif, ...prev]);
   };
 
-  const handleCollaborationStatus = (requestId: string, status: 'Accepted' | 'Declined') => {
+  const respondToConnectionRequest = (requestId: string, status: 'accepted' | 'declined') => {
     if (isLive) {
-      setCollabRequests((prev) =>
-        prev.map((req) => (req.id === requestId ? { ...req, status } : req)),
+      setConnections((prev) =>
+        prev.map((c) => (c.id === requestId ? { ...c, status } : c)),
       );
-      liveHandleCollaborationStatus(requestId, status)
-        .then(() => showToast(`Request ${status.toLowerCase()}.`))
+      liveRespondToConnectionRequest(requestId, status)
+        .then(() => showToast(status === 'accepted' ? 'You are now connected.' : 'Request declined.'))
         .catch(() => showToast('Could not update the request.', 'error'));
       return;
     }
 
-    setCollabRequests((prev) =>
-      prev.map((req) => (req.id === requestId ? { ...req, status } : req))
+    setConnections((prev) =>
+      prev.map((c) => (c.id === requestId ? { ...c, status } : c))
     );
 
-    const req = collabRequests.find((r) => r.id === requestId);
-    if (req) {
+    const conn = connections.find((c) => c.id === requestId);
+    if (conn) {
       const notif: NotificationItem = {
         id: `notif_cr_status_${Date.now()}`,
-        userId: req.senderId,
+        userId: conn.requesterId,
         type: 'collab_request',
-        title: `Collaboration ${status}`,
-        description: `${currentUser.name} has ${status.toLowerCase()} your collaboration request: "${req.title}".`,
+        title: status === 'accepted' ? 'Connection Accepted' : 'Connection Declined',
+        description: `${currentUser.name} has ${status} your connection request.`,
         timestamp: 'Just now',
         isRead: false,
         linkTab: 'dashboard',
       };
       setNotifications((prev) => [notif, ...prev]);
     }
+  };
+
+  const cancelConnectionRequest = (requestId: string) => {
+    if (isLive) {
+      setConnections((prev) => prev.filter((c) => c.id !== requestId));
+      liveCancelConnectionRequest(requestId)
+        .then(() => showToast('Request cancelled.'))
+        .catch(() => showToast('Could not cancel the request.', 'error'));
+      return;
+    }
+    setConnections((prev) => prev.filter((c) => c.id !== requestId));
+  };
+
+  const updateProject = (projectId: string, updates: Partial<Project>) => {
+    if (isLive) {
+      liveUpdateProject(projectId, updates as Record<string, unknown>, updates.skillsRequired ?? [])
+        .then((updated) => {
+          setProjects((prev) => prev.map((p) => (p.id === projectId ? updated : p)));
+          showToast('Project updated.');
+        })
+        .catch((err) => {
+          const msg =
+            err && typeof err === 'object' && 'message' in err && (err as Error).message
+              ? (err as Error).message
+              : 'Could not update the project.';
+          showToast(msg, 'error');
+        });
+      return;
+    }
+    setProjects((prev) => prev.map((p) => (p.id === projectId ? { ...p, ...updates } : p)));
+  };
+
+  const deleteProject = (projectId: string) => {
+    if (isLive) {
+      // DELETE archives the project server-side (deactivate through the
+      // backend, not merely hide it in the UI)
+      setProjects((prev) => prev.filter((p) => p.id !== projectId));
+      liveDeleteProject(projectId)
+        .then(() => showToast('Project deleted.'))
+        .catch((err) => {
+          const msg =
+            err && typeof err === 'object' && 'message' in err && (err as Error).message
+              ? (err as Error).message
+              : 'Could not delete the project.';
+          showToast(msg, 'error');
+        });
+      return;
+    }
+    setProjects((prev) => prev.filter((p) => p.id !== projectId));
+  };
+
+  const leaveProject = (projectId: string) => {
+    if (isLive) {
+      // The project stays intact — only this member's membership is removed
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === projectId
+            ? { ...p, currentTeam: p.currentTeam.filter((m) => m.userId !== currentUser.id) }
+            : p,
+        ),
+      );
+      liveLeaveProject(projectId)
+        .then(() => showToast('You have left the project.'))
+        .catch((err) => {
+          const msg =
+            err && typeof err === 'object' && 'message' in err && (err as Error).message
+              ? (err as Error).message
+              : 'Could not leave the project.';
+          showToast(msg, 'error');
+        });
+      return;
+    }
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === projectId
+          ? { ...p, currentTeam: p.currentTeam.filter((m) => m.userId !== currentUser.id) }
+          : p,
+      ),
+    );
+  };
+
+  const removeProjectMember = (projectId: string, userId: string) => {
+    if (isLive) {
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === projectId
+            ? { ...p, currentTeam: p.currentTeam.filter((m) => m.userId !== userId) }
+            : p,
+        ),
+      );
+      liveRemoveProjectMember(projectId, userId)
+        .then(() => showToast('Teammate removed.'))
+        .catch((err) => {
+          const msg =
+            err && typeof err === 'object' && 'message' in err && (err as Error).message
+              ? (err as Error).message
+              : 'Could not remove the teammate.';
+          showToast(msg, 'error');
+        });
+      return;
+    }
+    setProjects((prev) =>
+      prev.map((p) =>
+        p.id === projectId
+          ? { ...p, currentTeam: p.currentTeam.filter((m) => m.userId !== userId) }
+          : p,
+      ),
+    );
   };
 
   const addPortfolioItem = (data: Omit<PortfolioItem, 'id' | 'userId'>) => {
@@ -1091,6 +1220,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode; mode?: 'live' | 
         setActiveConversationId,
         isProjectCreateOpen,
         setIsProjectCreateOpen,
+        isProjectEditOpen,
+        setIsProjectEditOpen,
         isProfileEditOpen,
         setIsProfileEditOpen,
         isPortfolioAddOpen,
@@ -1109,7 +1240,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode; mode?: 'live' | 
         events,
         announcements,
         applications,
-        collabRequests,
+        connections,
+        startups,
         conversations,
         messages,
         notifications,
@@ -1122,8 +1254,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode; mode?: 'live' | 
         createProject,
         applyToProject,
         handleApplicationStatus,
-        sendCollaborationRequest,
-        handleCollaborationStatus,
+        sendConnectionRequest,
+        respondToConnectionRequest,
+        cancelConnectionRequest,
+        updateProject,
+        deleteProject,
+        leaveProject,
+        removeProjectMember,
         addPortfolioItem,
         updateUserProfile,
         toggleSaveItem,

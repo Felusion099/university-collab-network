@@ -61,3 +61,10 @@ export class BadRequestError extends AppError {
     this.name = "BadRequestError";
   }
 }
+
+export class RateLimitError extends AppError {
+  constructor(message: string = "Too many requests", code: string = "RATE_LIMITED") {
+    super(message, 429, code);
+    this.name = "RateLimitError";
+  }
+}

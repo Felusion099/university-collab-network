@@ -46,6 +46,25 @@ export async function getBySlug(slug: string) {
 }
 
 export async function create(userId: string, input: CreateOrganizationRequest) {
+  // Startup lifecycle: official startup entries are admin-managed — a very
+  // early startup idea lives under Projects; only an admin curates the
+  // Startups section (ongoing/incubated/graduated stories). Server-side
+  // authorization — the frontend's role checks are never sufficient.
+  if (input.type === "startup") {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { requestedRole: true },
+    });
+    if (user?.requestedRole !== "admin") {
+      throw new ForbiddenError("Only administrators can add startup entries");
+    }
+    const approved = await prisma.verification.findFirst({
+      where: { userId, roleClaimed: "admin", status: "approved" },
+    });
+    if (!approved) {
+      throw new ForbiddenError("Admin privileges are not verified for this account");
+    }
+  }
   const slug = await uniqueSlug(input.name);
   return organizationRepository.create({
     type: input.type,
