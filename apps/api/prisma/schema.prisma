@@ -45,6 +45,7 @@ model User {
   connectionsSent            Connection[]               @relation("ConnectionRequester")
   connectionHistorySent      ConnectionRequestHistory[] @relation("ConnectionHistoryRequester")
   connectionHistoryReceived  ConnectionRequestHistory[] @relation("ConnectionHistoryAddressee")
+  noticesAuthored            Notice[]                   @relation("NoticeAuthor")
   conversationParticipations ConversationParticipant[]
   eventParticipations        EventParticipant[]
   followedBy                 Follow[]                   @relation("Followee")
@@ -1091,4 +1092,27 @@ model ConnectionRequestHistory {
 
   @@index([requesterId, addresseeId, createdAt])
   @@map("connection_request_history")
+}
+
+// ============================================================================
+// Council Notices — official campus notices/announcements persisted in the
+// backend (they were client-side localStorage only). Admin-authored.
+// ============================================================================
+
+model Notice {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authorId   String   @map("author_id") @db.Uuid
+  title      String
+  content    String
+  priority   String   @default("Notice")
+  isPinned   Boolean  @default(false) @map("is_pinned")
+  linkAction String?  @map("link_action")
+  isSeed     Boolean  @default(false) @map("is_seed")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  author     User     @relation("NoticeAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([authorId])
+  @@index([createdAt])
+  @@map("notices")
 }

@@ -124,3 +124,21 @@ export const MatchResultSchema = z.object({
   unmatchedCriteria: z.array(z.string()),
 });
 export type MatchResultDTO = z.infer<typeof MatchResultSchema>;
+// ============================================================================
+// Notices — /api/v1/notices (official campus notices, admin-authored)
+// ============================================================================
+
+export const NoticePriorityEnum = z.enum(["Urgent", "Important", "Notice"]);
+export type NoticePriority = z.infer<typeof NoticePriorityEnum>;
+
+export const CreateNoticeRequestSchema = z.object({
+  title: z.string().min(1, "Notice title is required").max(160),
+  content: z.string().min(1, "Notice content is required").max(4000),
+  priority: NoticePriorityEnum.optional(),
+  isPinned: z.boolean().optional(),
+  linkAction: z.string().max(200).optional(),
+});
+export type CreateNoticeRequest = z.infer<typeof CreateNoticeRequestSchema>;
+
+export const UpdateNoticeRequestSchema = CreateNoticeRequestSchema.partial();
+export type UpdateNoticeRequest = z.infer<typeof UpdateNoticeRequestSchema>;

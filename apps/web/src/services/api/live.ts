@@ -526,6 +526,17 @@ function mapC1StatusToApi(status: string): string {
   }
 }
 
+export async function liveCreateNotice(data: {
+  title: string;
+  content: string;
+  priority?: string;
+}): Promise<unknown> {
+  return apiFetch<AnyRow>('/notices', {
+    method: 'POST',
+    body: { ...data, priority: data.priority ?? 'Notice' },
+  });
+}
+
 export async function liveUpdateProject(
   projectId: string,
   data: Record<string, unknown>,

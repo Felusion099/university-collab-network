@@ -21,6 +21,7 @@ import {
   Check,
   LogOut,
   Rocket,
+  ShieldCheck,
 } from 'lucide-react';
 import { ActiveTab } from '../../types';
 
@@ -59,6 +60,7 @@ export const Navbar: React.FC = () => {
     { id: 'communities', label: 'Communities', icon: Layers },
     { id: 'events', label: 'Events', icon: Calendar },
     { id: 'announcements', label: 'Council Notices', icon: Building2 },
+    ...(currentUser.role === 'council_admin' ? [{ id: 'admin' as ActiveTab, label: 'Admin Panel', icon: ShieldCheck }] : []),
   ];
 
   const handleNavClick = (tab: ActiveTab) => {

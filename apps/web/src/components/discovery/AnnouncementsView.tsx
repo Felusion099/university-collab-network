@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Building2, Pin, AlertCircle, Plus, Send, CheckCircle2 } from 'lucide-react';
+import { liveCreateNotice } from '../../services/api/live';
+import { Building2, Pin, AlertCircle, Plus, Send, CheckCircle2, Trash2 } from 'lucide-react';
 
 export const AnnouncementsView: React.FC = () => {
-  const { announcements, currentUser, createAnnouncement, setActiveTab } = useApp();
+  const { announcements, currentUser, createAnnouncement, setActiveTab, showToast, mode } = useApp();
   const [isPublishing, setIsPublishing] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -13,6 +14,22 @@ export const AnnouncementsView: React.FC = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !content.trim()) return;
+    if (mode === 'live') {
+      // Notices persist in the backend (admin-authored, server-verified)
+      liveCreateNotice({ title: title.trim(), content: content.trim(), priority })
+        .then(() => {
+          setTitle('');
+          setContent('');
+          setIsPublishing(false);
+          showToast('Notice published.');
+          setTimeout(() => window.location.reload(), 800);
+        })
+        .catch((err) => {
+          const msg = err && typeof err === 'object' && 'message' in err ? String((err as Error).message) : 'Could not publish the notice.';
+          showToast(msg, 'error');
+        });
+      return;
+    }
     createAnnouncement({ title: title.trim(), content: content.trim(), priority });
     setTitle('');
     setContent('');

@@ -15,6 +15,7 @@ import { connectionsRouter } from "./connections.routes.js";
 import { conversationsRouter } from "./conversations.routes.js";
 import { groupsRouter } from "./groups.routes.js";
 import { notificationsRouter } from "./notifications.routes.js";
+import { noticesRouter } from "./notices.routes.js";
 import { searchRouter } from "./search.routes.js";
 import { discoverRouter } from "./discover.routes.js";
 import { adminRouter } from "./admin.routes.js";

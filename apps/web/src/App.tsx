@@ -12,6 +12,7 @@ import { CommunitiesDiscovery } from './components/discovery/CommunitiesDiscover
 import { StartupsView } from './components/discovery/StartupsView';
 import { EventsDiscovery } from './components/discovery/EventsDiscovery';
 import { AnnouncementsView } from './components/discovery/AnnouncementsView';
+import { AdminPanelView } from './components/admin/AdminPanelView';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { MessagesView } from './components/communication/MessagesView';
 import { SavedItemsView } from './components/dashboard/SavedItemsView';
@@ -86,6 +87,7 @@ const AppContent: React.FC = () => {
             {activeTab === 'communities' && <CommunitiesDiscovery />}
             {activeTab === 'events' && <EventsDiscovery />}
             {activeTab === 'announcements' && <AnnouncementsView />}
+            {activeTab === 'admin' && <AdminPanelView />}
             {activeTab === 'dashboard' && <DashboardView />}
             {activeTab === 'messages' && <MessagesView />}
             {activeTab === 'saved' && <SavedItemsView />}

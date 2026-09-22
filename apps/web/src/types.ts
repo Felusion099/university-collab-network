@@ -230,6 +230,7 @@ export type ActiveTab =
   | 'communities'
   | 'events'
   | 'announcements'
+  | 'admin'
   | 'dashboard'
   | 'messages'
   | 'saved';
