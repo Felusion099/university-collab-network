@@ -203,6 +203,59 @@ describe("Phase 5 - Complete API Endpoints Integration Test Suite", () => {
         }
       });
     });
+    // Self-cleaning: this suite creates fresh users per run (Date.now()
+    // emails) and never removed them — accumulated rows eventually push the
+    // pending-verification list past its limit=100 page and break the
+    // admin-review assertions. Reverse-dependency order, is_seed=false only.
+    const p5Users = await prisma.user.findMany({
+      where: { email: { contains: "_p5_" } },
+      select: { id: true },
+    });
+    const ids = p5Users.map((u) => u.id);
+    if (ids.length > 0) {
+      await prisma.verification.deleteMany({ where: { userId: { in: ids } } });
+      await prisma.refreshToken.deleteMany({ where: { userId: { in: ids } } });
+      await prisma.userResearchTopic.deleteMany({ where: { userId: { in: ids } } });
+      await prisma.userSkill.deleteMany({ where: { userId: { in: ids } } });
+      const p5Projects = await prisma.project.findMany({
+        where: { createdBy: { in: ids } },
+        select: { id: true },
+      });
+      const projectIds = p5Projects.map((p) => p.id);
+      if (projectIds.length > 0) {
+        await prisma.projectTopic.deleteMany({ where: { projectId: { in: projectIds } } });
+        await prisma.projectSkillNeeded.deleteMany({ where: { projectId: { in: projectIds } } });
+        await prisma.projectMember.deleteMany({ where: { projectId: { in: projectIds } } });
+        await prisma.joinRequest.deleteMany({ where: { projectId: { in: projectIds } } });
+        await prisma.project.deleteMany({ where: { id: { in: projectIds } } });
+      }
+      const p5Teams = await prisma.researchTeam.findMany({
+        where: { piUserId: { in: ids } },
+        select: { id: true },
+      });
+      const teamIds = p5Teams.map((t) => t.id);
+      if (teamIds.length > 0) {
+        await prisma.researchTeamTopic.deleteMany({ where: { researchTeamId: { in: teamIds } } });
+        await prisma.researchTeam.deleteMany({ where: { id: { in: teamIds } } });
+      }
+      const p5Orgs = await prisma.organization.findMany({
+        where: { createdBy: { in: ids } },
+        select: { id: true },
+      });
+      const orgIds = p5Orgs.map((o) => o.id);
+      if (orgIds.length > 0) {
+        await prisma.membership.deleteMany({ where: { organizationId: { in: orgIds } } });
+        await prisma.organization.deleteMany({ where: { id: { in: orgIds } } });
+      }
+      await prisma.connection.deleteMany({
+        where: { OR: [{ requesterId: { in: ids } }, { addresseeId: { in: ids } }] },
+      });
+      await prisma.notificationPreferences.deleteMany({ where: { userId: { in: ids } } });
+      await prisma.privacySettings.deleteMany({ where: { userId: { in: ids } } });
+      await prisma.studentProfile.deleteMany({ where: { userId: { in: ids } } });
+      await prisma.professorProfile.deleteMany({ where: { userId: { in: ids } } });
+      await prisma.user.deleteMany({ where: { id: { in: ids } } });
+    }
   });
 
   // ==========================================

@@ -11,7 +11,6 @@ export const HeroSearch: React.FC = () => {
     setIsProjectCreateOpen,
     projects,
     users,
-    services,
   } = useApp();
 
   const handleQuickTagClick = (tag: string, targetTab?: ActiveTab) => {
@@ -40,7 +39,7 @@ export const HeroSearch: React.FC = () => {
 
         {/* Display Typography Headline */}
         <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-zinc-900 max-w-3xl mx-auto leading-[1.15]">
-          Find talented collaborators, faculty labs & student services to build with.
+          Find talented collaborators, faculty labs & campus builders to work with.
         </h1>
 
         {/* Refined Subtitle */}
@@ -86,7 +85,6 @@ export const HeroSearch: React.FC = () => {
           <span className="font-medium text-zinc-400">Popular:</span>
           {[
             { label: 'Autonomous Swarms', tab: 'projects' as ActiveTab },
-            { label: 'Figma UI Systems', tab: 'services' as ActiveTab },
             { label: 'Machine Learning', tab: 'people' as ActiveTab },
             { label: 'ESP32 Firmware', tab: 'people' as ActiveTab },
             { label: 'Assistive Tech', tab: 'projects' as ActiveTab },
@@ -110,10 +108,6 @@ export const HeroSearch: React.FC = () => {
           <div>
             <div className="text-xl font-bold text-zinc-900">{projects.length} Active</div>
             <div className="text-[11px] text-zinc-500 font-medium mt-0.5">Teams Seeking Collaborators</div>
-          </div>
-          <div>
-            <div className="text-xl font-bold text-zinc-900">{services.length} Offered</div>
-            <div className="text-[11px] text-zinc-500 font-medium mt-0.5">Campus Creator Services</div>
           </div>
         </div>
 

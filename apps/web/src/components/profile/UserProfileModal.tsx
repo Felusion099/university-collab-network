@@ -31,7 +31,6 @@ export const UserProfileModal: React.FC = () => {
     currentUser,
     portfolio,
     projects,
-    services,
     startConversationWithUser,
     setCollabTargetUser,
     setIsCollabModalOpen,
@@ -42,7 +41,7 @@ export const UserProfileModal: React.FC = () => {
   } = useApp();
 
   const [activeProfileTab, setActiveProfileTab] = useState<
-    'work' | 'about' | 'publications' | 'services' | 'projects'
+    'work' | 'about' | 'publications' | 'projects'
   >('work');
 
   if (!selectedUserId) return null;
@@ -56,7 +55,6 @@ export const UserProfileModal: React.FC = () => {
   const userProjects = projects.filter(
     (p) => p.ownerId === user.id || p.currentTeam.some((m) => m.userId === user.id)
   );
-  const userServices = services.filter((s) => s.creatorId === user.id);
 
   return (
     <div
@@ -222,20 +220,6 @@ export const UserProfileModal: React.FC = () => {
               </button>
             )}
 
-            {userServices.length > 0 && (
-              <button
-                onClick={() => setActiveProfileTab('services')}
-                className={`pb-2 border-b-2 transition-colors flex items-center gap-1.5 shrink-0 ${
-                  activeProfileTab === 'services'
-                    ? 'border-zinc-900 text-zinc-900 font-semibold'
-                    : 'border-transparent hover:text-zinc-800'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Services ({userServices.length})</span>
-              </button>
-            )}
-
             <button
               onClick={() => setActiveProfileTab('projects')}
               className={`pb-2 border-b-2 transition-colors flex items-center gap-1.5 shrink-0 ${
@@ -354,43 +338,6 @@ export const UserProfileModal: React.FC = () => {
                   <span className="px-2 py-0.5 rounded bg-zinc-100 text-zinc-700 text-[10px] font-medium shrink-0">
                     Published
                   </span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* TAB 3: Services Offered */}
-          {activeProfileTab === 'services' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {userServices.map((serv) => (
-                <div
-                  key={serv.id}
-                  className="bg-white p-5 rounded-xl border border-zinc-200 flex flex-col justify-between"
-                >
-                  <div>
-                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-zinc-100 text-zinc-700">
-                      {serv.category}
-                    </span>
-                    <h4 className="font-semibold text-xs text-zinc-900 mt-2">{serv.title}</h4>
-                    <p className="text-xs text-zinc-600 mt-1 line-clamp-2">{serv.description}</p>
-                  </div>
-                  <div className="mt-4 pt-3 border-t border-zinc-100 flex items-center justify-between text-xs">
-                    <div>
-                      <span className="text-zinc-400 text-[10px]">Starting at</span>
-                      <div className="font-bold text-zinc-900">{serv.startingPrice}</div>
-                    </div>
-                    {!isSelf && (
-                      <button
-                        onClick={() => {
-                          setSelectedUserId(null);
-                          startConversationWithUser(user.id);
-                        }}
-                        className="px-3 py-1 bg-zinc-900 text-white rounded-lg text-xs font-medium"
-                      >
-                        Inquire
-                      </button>
-                    )}
-                  </div>
                 </div>
               ))}
             </div>

@@ -24,7 +24,6 @@ export const HomeView: React.FC = () => {
     users,
     projects,
     events,
-    services,
     setActiveTab,
     openUserProfile,
     startConversationWithUser,
@@ -43,7 +42,6 @@ export const HomeView: React.FC = () => {
   const stats = [
     { icon: Users, label: 'People & Labs', value: `${users.length}`, tab: 'people' as const },
     { icon: FolderKanban, label: 'Open Projects', value: `${projects.filter((p) => p.status !== 'Completed').length}`, tab: 'projects' as const },
-    { icon: Wrench, label: 'Services Offered', value: `${services.length}`, tab: 'services' as const },
     { icon: CalendarDays, label: 'Upcoming Events', value: `${events.length}`, tab: 'events' as const },
   ];
 

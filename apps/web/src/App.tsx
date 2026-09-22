@@ -7,7 +7,6 @@ import { HomeView } from './components/home/HomeView';
 import { LoginPage } from './components/auth/LoginPage';
 import { PeopleDiscovery } from './components/discovery/PeopleDiscovery';
 import { ProjectDiscovery } from './components/discovery/ProjectDiscovery';
-import { ServiceDiscovery } from './components/discovery/ServiceDiscovery';
 import { CommunitiesDiscovery } from './components/discovery/CommunitiesDiscovery';
 import { EventsDiscovery } from './components/discovery/EventsDiscovery';
 import { AnnouncementsView } from './components/discovery/AnnouncementsView';
@@ -22,7 +21,6 @@ import { AddPortfolioModal } from './components/profile/AddPortfolioModal';
 import { CreateProjectModal } from './components/creation/CreateProjectModal';
 import { ProjectApplicationModal } from './components/creation/ProjectApplicationModal';
 import { CollaborationRequestModal } from './components/creation/CollaborationRequestModal';
-import { CreateServiceModal } from './components/creation/CreateServiceModal';
 import { ShieldCheck, GraduationCap, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 
 const LoadingScreen: React.FC = () => (
@@ -65,7 +63,7 @@ const ToastHost: React.FC = () => {
 const AppContent: React.FC = () => {
   const { activeTab, isLoading } = useApp();
 
-  const isDiscoveryTab = ['people', 'projects', 'services', 'communities', 'events'].includes(activeTab);
+  const isDiscoveryTab = ['people', 'projects', 'communities', 'events'].includes(activeTab);
 
   return (
     <div className="min-h-screen bg-stone-50 text-zinc-900 flex flex-col font-sans selection:bg-zinc-900 selection:text-white">
@@ -84,8 +82,7 @@ const AppContent: React.FC = () => {
             {activeTab === 'home' && <HomeView />}
             {activeTab === 'people' && <PeopleDiscovery />}
             {activeTab === 'projects' && <ProjectDiscovery />}
-            {activeTab === 'services' && <ServiceDiscovery />}
-            {activeTab === 'communities' && <CommunitiesDiscovery />}
+              {activeTab === 'communities' && <CommunitiesDiscovery />}
             {activeTab === 'events' && <EventsDiscovery />}
             {activeTab === 'announcements' && <AnnouncementsView />}
             {activeTab === 'dashboard' && <DashboardView />}
@@ -102,7 +99,6 @@ const AppContent: React.FC = () => {
       <CreateProjectModal />
       <ProjectApplicationModal />
       <CollaborationRequestModal />
-      <CreateServiceModal />
 
       {/* Toasts */}
       <ToastHost />

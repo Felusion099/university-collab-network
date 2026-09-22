@@ -65,7 +65,7 @@ model User {
   researchTeamsLed           ResearchTeam[]            @relation("ResearchTeamPI")
   researcherProfile          ResearcherProfile?
   studentProfile             StudentProfile?
-  professionalProfile        ProfessionalProfile?  @relation("ProfessionalProfile")
+  professionalProfile        ProfessionalProfile?      @relation("ProfessionalProfile")
   userResearchTopics         UserResearchTopic[]
   userSkills                 UserSkill[]
   verificationsReviewed      Verification[]            @relation("VerificationReviewer")
@@ -319,7 +319,7 @@ model ResearchTeam {
   updatedAt          DateTime            @updatedAt @map("updated_at")
   conversations      Conversation[]
   events             Event[]
-  joinRequests        JoinRequest[]
+  joinRequests       JoinRequest[]
   memberships        Membership[]
   opportunities      Opportunity[]
   researchTeamTopics ResearchTeamTopic[]
@@ -824,34 +824,34 @@ enum ResearcherType {
 /// Reused across profile_visibility and every *_visibility column in
 /// privacy_settings, per DATABASE_SCHEMA.md.
 model Group {
-  id          String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name        String
-  description String?
-  avatarUrl   String?      @map("avatar_url")
-  ownerId     String       @map("owner_id") @db.Uuid
+  id           String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String
+  description  String?
+  avatarUrl    String?           @map("avatar_url")
+  ownerId      String            @map("owner_id") @db.Uuid
   /// Personal groups default private — entry only via invitation/link
   /// (spec §35). Not exposed in global search.
-  isSeed      Boolean      @default(false) @map("is_seed")
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
-  owner       User         @relation("GroupOwner", fields: [ownerId], references: [id])
-  members     GroupMember[]
+  isSeed       Boolean           @default(false) @map("is_seed")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+  owner        User              @relation("GroupOwner", fields: [ownerId], references: [id])
+  members      GroupMember[]
   joinRequests JoinRequest[]
-  inviteLinks GroupInviteLink[]
-  conversation Conversation? @relation("GroupConversation")
+  inviteLinks  GroupInviteLink[]
+  conversation Conversation?     @relation("GroupConversation")
 
   @@index([ownerId])
   @@map("groups")
 }
 
 model GroupMember {
-  groupId   String    @map("group_id") @db.Uuid
-  userId    String    @map("user_id") @db.Uuid
+  groupId   String          @map("group_id") @db.Uuid
+  userId    String          @map("user_id") @db.Uuid
   role      GroupMemberRole @default(member)
-  isSeed    Boolean   @default(false) @map("is_seed")
-  createdAt DateTime  @default(now()) @map("created_at")
-  group     Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  user      User      @relation("GroupMemberships", fields: [userId], references: [id], onDelete: Cascade)
+  isSeed    Boolean         @default(false) @map("is_seed")
+  createdAt DateTime        @default(now()) @map("created_at")
+  group     Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User            @relation("GroupMemberships", fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([groupId, userId])
   @@index([userId])
@@ -875,21 +875,21 @@ model GroupInviteLink {
 }
 
 model JoinRequest {
-  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId         String           @map("user_id") @db.Uuid
-  projectId      String?          @map("project_id") @db.Uuid
-  researchTeamId String?          @map("research_team_id") @db.Uuid
-  groupId        String?          @map("group_id") @db.Uuid
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String               @map("user_id") @db.Uuid
+  projectId      String?              @map("project_id") @db.Uuid
+  researchTeamId String?              @map("research_team_id") @db.Uuid
+  groupId        String?              @map("group_id") @db.Uuid
   /// request = user asked to join; invitation = creator/PI invited the user
   direction      JoinRequestDirection
-  status         JoinRequestStatus @default(pending)
+  status         JoinRequestStatus    @default(pending)
   message        String?
-  createdAt      DateTime         @default(now()) @map("created_at")
-  updatedAt      DateTime         @updatedAt @map("updated_at")
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  project        Project?         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  researchTeam   ResearchTeam?    @relation(fields: [researchTeamId], references: [id], onDelete: Cascade)
-  group          Group?           @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdAt      DateTime             @default(now()) @map("created_at")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project        Project?             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  researchTeam   ResearchTeam?        @relation(fields: [researchTeamId], references: [id], onDelete: Cascade)
+  group          Group?               @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([projectId])
@@ -953,6 +953,7 @@ enum SkillRoleNeeded {
   product
   other
 }
+
 
 enum SkillProficiency {
   beginner
@@ -1065,3 +1066,5 @@ enum ReportAction {
   suspend
   ban
 }
+
+

@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import {
   User,
   Project,
-  Service,
   PortfolioItem,
   Community,
   CampusEvent,
@@ -19,7 +18,6 @@ import {
   INITIAL_USERS,
   INITIAL_PORTFOLIO,
   INITIAL_PROJECTS,
-  INITIAL_SERVICES,
   INITIAL_COMMUNITIES,
   INITIAL_EVENTS,
   INITIAL_ANNOUNCEMENTS,
@@ -71,8 +69,6 @@ interface AppContextType {
   setSelectedUserId: (id: string | null) => void;
   selectedProjectId: string | null;
   setSelectedProjectId: (id: string | null) => void;
-  selectedServiceId: string | null;
-  setSelectedServiceId: (id: string | null) => void;
   selectedCommunityId: string | null;
   setSelectedCommunityId: (id: string | null) => void;
   activeConversationId: string | null;
@@ -81,8 +77,6 @@ interface AppContextType {
   // Modals state
   isProjectCreateOpen: boolean;
   setIsProjectCreateOpen: (v: boolean) => void;
-  isServiceCreateOpen: boolean;
-  setIsServiceCreateOpen: (v: boolean) => void;
   isProfileEditOpen: boolean;
   setIsProfileEditOpen: (v: boolean) => void;
   isPortfolioAddOpen: boolean;
@@ -98,7 +92,6 @@ interface AppContextType {
 
   // Data lists
   projects: Project[];
-  services: Service[];
   portfolio: PortfolioItem[];
   communities: Community[];
   events: CampusEvent[];
@@ -114,13 +107,11 @@ interface AppContextType {
   switchUser: (userId: string) => void;
   openUserProfile: (userId: string) => void;
   openProjectDetails: (projectId: string) => void;
-  openServiceDetails: (serviceId: string) => void;
   startConversationWithUser: (targetUserId: string) => void;
   sendMessage: (conversationId: string, text: string) => void;
   createProject: (data: Omit<Project, 'id' | 'createdAt' | 'ownerId' | 'currentTeam'>) => void;
   applyToProject: (data: { projectId: string; roleApplied: string; message: string; relevantSkills: string[]; portfolioLinks: string[]; proposedTimeline: string }) => void;
   handleApplicationStatus: (applicationId: string, status: 'Accepted' | 'Rejected' | 'Shortlisted') => void;
-  createService: (data: Omit<Service, 'id' | 'createdAt' | 'creatorId'>) => void;
   sendCollaborationRequest: (data: { receiverId: string; type: 'hackathon' | 'research' | 'project' | 'mentorship'; title: string; message: string }) => void;
   handleCollaborationStatus: (requestId: string, status: 'Accepted' | 'Declined') => void;
   addPortfolioItem: (data: Omit<PortfolioItem, 'id' | 'userId'>) => void;
@@ -199,7 +190,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode; mode?: 'live' | 
   // Selected for modals or views
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
   const [selectedCommunityId, setSelectedCommunityId] = useState<string | null>(null);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(
     isLive ? null : 'conv1',
@@ -207,7 +197,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode; mode?: 'live' | 
 
   // Modal visibilities
   const [isProjectCreateOpen, setIsProjectCreateOpen] = useState(false);
-  const [isServiceCreateOpen, setIsServiceCreateOpen] = useState(false);
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const [isPortfolioAddOpen, setIsPortfolioAddOpen] = useState(false);
   const [isCollabModalOpen, setIsCollabModalOpen] = useState(false);
@@ -217,13 +206,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode; mode?: 'live' | 
 
   // Data sets — demo mode restores from localStorage; live mode starts
   // empty and bootstraps from the API below. Client-side-only datasets
-  // (services, portfolio, saved items, announcements) are session-scoped
+  // (portfolio, saved items, announcements) are session-scoped
   // in live mode: creations work but reloads start clean.
   const [projects, setProjects] = useState<Project[]>(() =>
     isLive ? [] : load('ucn_projects', INITIAL_PROJECTS),
-  );
-  const [services, setServices] = useState<Service[]>(() =>
-    isLive ? [] : load('ucn_services', INITIAL_SERVICES),
   );
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>(() =>
     isLive ? [] : load('ucn_portfolio', INITIAL_PORTFOLIO),
@@ -302,7 +288,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode; mode?: 'live' | 
         if (cancelled) return;
         setUsers(data.users);
         setProjects(data.projects);
-        setServices(data.services);
         setPortfolio(data.portfolio);
         setCommunities(data.communities);
         setEvents(data.events);
@@ -434,9 +419,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode; mode?: 'live' | 
     if (!isLive) sync('ucn_projects', projects);
   }, [projects, isLive]);
   useEffect(() => {
-    if (!isLive) sync('ucn_services', services);
-  }, [services, isLive]);
-  useEffect(() => {
     if (!isLive) sync('ucn_portfolio', portfolio);
   }, [portfolio, isLive]);
   useEffect(() => {
@@ -486,10 +468,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode; mode?: 'live' | 
 
   const openProjectDetails = (projectId: string) => {
     setSelectedProjectId(projectId);
-  };
-
-  const openServiceDetails = (serviceId: string) => {
-    setSelectedServiceId(serviceId);
   };
 
   const startConversationWithUser = (targetUserId: string) => {
@@ -786,19 +764,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode; mode?: 'live' | 
       };
       setNotifications((prev) => [notif, ...prev]);
     }
-  };
-
-  const createService = (data: Omit<Service, 'id' | 'createdAt' | 'creatorId'>) => {
-    // Services are a Campus-UI (client-side) feature — they persist locally
-    // in the demo and per-session in live mode.
-    const newService: Service = {
-      ...data,
-      id: `serv_${Date.now()}`,
-      creatorId: currentUser.id,
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-
-    setServices((prev) => [newService, ...prev]);
   };
 
   const sendCollaborationRequest = (data: {
@@ -1120,16 +1085,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode; mode?: 'live' | 
         setSelectedUserId,
         selectedProjectId,
         setSelectedProjectId,
-        selectedServiceId,
-        setSelectedServiceId,
         selectedCommunityId,
         setSelectedCommunityId,
         activeConversationId,
         setActiveConversationId,
         isProjectCreateOpen,
         setIsProjectCreateOpen,
-        isServiceCreateOpen,
-        setIsServiceCreateOpen,
         isProfileEditOpen,
         setIsProfileEditOpen,
         isPortfolioAddOpen,
@@ -1143,7 +1104,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode; mode?: 'live' | 
         applicationTargetProject,
         setApplicationTargetProject,
         projects,
-        services,
         portfolio,
         communities,
         events,
@@ -1157,13 +1117,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode; mode?: 'live' | 
         switchUser,
         openUserProfile,
         openProjectDetails,
-        openServiceDetails,
         startConversationWithUser,
         sendMessage,
         createProject,
         applyToProject,
         handleApplicationStatus,
-        createService,
         sendCollaborationRequest,
         handleCollaborationStatus,
         addPortfolioItem,

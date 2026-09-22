@@ -36,7 +36,6 @@ export const Navbar: React.FC = () => {
     savedItems,
     openUserProfile,
     setIsProjectCreateOpen,
-    setIsServiceCreateOpen,
     globalSearch,
     setGlobalSearch,
   } = useApp();
@@ -55,7 +54,6 @@ export const Navbar: React.FC = () => {
     { id: 'home', label: 'Explore', icon: Compass },
     { id: 'people', label: 'People & Labs', icon: Users },
     { id: 'projects', label: 'Projects', icon: Briefcase },
-    { id: 'services', label: 'Services', icon: Sparkles },
     { id: 'communities', label: 'Communities', icon: Layers },
     { id: 'events', label: 'Events', icon: Calendar },
     { id: 'announcements', label: 'Council Notices', icon: Building2 },
@@ -128,15 +126,6 @@ export const Navbar: React.FC = () => {
                 <Plus className="w-3.5 h-3.5" />
                 Post Project
               </button>
-              {currentUser.role === 'student' && (
-                <button
-                  onClick={() => setIsServiceCreateOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-lg text-xs font-medium transition-colors border border-zinc-200"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                  Offer Service
-                </button>
-              )}
             </div>
 
             {/* Persona Switcher (Demo & Role Testing) — demo mode only */}
@@ -399,17 +388,6 @@ export const Navbar: React.FC = () => {
                   >
                     + Post Project
                   </button>
-                  {currentUser.role === 'student' && (
-                    <button
-                      onClick={() => {
-                        setIsServiceCreateOpen(true);
-                        setIsMobileMenuOpen(false);
-                      }}
-                      className="flex-1 py-2 bg-zinc-100 text-zinc-900 border border-zinc-200 rounded-lg text-xs font-medium text-center"
-                    >
-                      + Offer Service
-                    </button>
-                  )}
                 </div>
               </div>
           </div>

@@ -17,7 +17,6 @@ import {
 import type {
   User,
   Project,
-  Service,
   PortfolioItem,
   Community,
   CampusEvent,
@@ -102,7 +101,6 @@ function inferRole(name: string): SkillRoleNeeded {
 export interface LiveBootstrap {
   users: User[];
   projects: Project[];
-  services: Service[];
   portfolio: PortfolioItem[];
   communities: Community[];
   events: CampusEvent[];
@@ -274,7 +272,6 @@ export async function fetchLiveBootstrap(currentUserId: string): Promise<LiveBoo
   return {
     users,
     projects,
-    services: [],
     portfolio: [],
     communities,
     events,
@@ -387,6 +384,12 @@ export async function liveUpdateProfile(
   if (typeof updates.name === 'string') body.fullName = updates.name;
   if (typeof updates.bio === 'string') body.bio = updates.bio;
   if (typeof updates.department === 'string') body.department = updates.department;
+  // Profile picture — a base64 data URI persisted in the avatarUrl column
+  // alongside the other profile details (fits the 2mb body limit: the
+  // client downscales to a 256px square before upload)
+  if (typeof updates.avatar === 'string' && updates.avatar.startsWith('data:image/')) {
+    body.avatarUrl = updates.avatar;
+  }
   await apiFetch('/users/me/profile', { method: 'PATCH', body });
   if (skillNames.length > 0) {
     const resolved = await resolveSkills(skillNames);

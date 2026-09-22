@@ -245,7 +245,7 @@ export const MessagesView: React.FC = () => {
             <div className="flex-1 p-6 overflow-y-auto space-y-4 bg-zinc-50/30">
               {activeMessages.length === 0 ? (
                 <div className="text-center py-12 text-xs text-zinc-400">
-                  Say hello and propose your project collaboration or service inquiry!
+                  Say hello and propose your project collaboration!
                 </div>
               ) : (
                 activeMessages.map((msg) => {

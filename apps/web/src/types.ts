@@ -115,27 +115,6 @@ export interface CollaborationRequest {
   createdAt: string;
 }
 
-export interface ServicePackage {
-  name: string;
-  deliveryDays: number;
-  price: string;
-  features: string[];
-}
-
-export interface Service {
-  id: string;
-  creatorId: string;
-  title: string;
-  description: string;
-  category: 'Engineering' | 'Design' | 'Research & Writing' | 'Hardware & IoT' | 'Multimedia';
-  skills: string[];
-  turnaround: string;
-  startingPrice: string;
-  packages: ServicePackage[];
-  portfolioSampleIds?: string[];
-  createdAt: string;
-}
-
 export interface Community {
   id: string;
   name: string;
@@ -205,14 +184,14 @@ export interface NotificationItem {
   description: string;
   timestamp: string;
   isRead: boolean;
-  linkTab?: 'projects' | 'people' | 'services' | 'messages' | 'announcements' | 'dashboard';
+  linkTab?: 'projects' | 'people' | 'messages' | 'announcements' | 'dashboard';
   referenceId?: string;
 }
 
 export interface SavedItem {
   id: string;
   userId: string;
-  itemType: 'person' | 'project' | 'service' | 'community' | 'event';
+  itemType: 'person' | 'project' | 'community' | 'event';
   itemId: string;
   savedAt: string;
 }
@@ -221,7 +200,6 @@ export type ActiveTab =
   | 'home'
   | 'people'
   | 'projects'
-  | 'services'
   | 'communities'
   | 'events'
   | 'announcements'

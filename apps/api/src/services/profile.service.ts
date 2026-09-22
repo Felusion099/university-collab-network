@@ -529,7 +529,10 @@ export async function updateOwnProfile(userId: string, input: UpdateProfileReque
     } as never);
   }
 
-  return userRepository.findById(userId);
+  // Return the composed owner-view profile (same pipeline as getOwnProfile)
+  // — NEVER the raw user row: findById selects passwordHash, which leaked
+  // in every PATCH /users/me/profile response before this fix.
+  return getOwnProfile(userId);
 }
 
 export async function getOwnPrivacySettings(userId: string) {

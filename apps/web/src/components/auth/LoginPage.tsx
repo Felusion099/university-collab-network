@@ -52,7 +52,7 @@ export const LoginPage: React.FC = () => {
             </h1>
             <p className="text-zinc-600 leading-relaxed mb-8 max-w-md">
               The university-scoped collaboration network — discover people, projects,
-              research, events and services. Backed by a real API: real accounts,
+              research and events. Backed by a real API: real accounts,
               real teams, real messages.
             </p>
             <div className="space-y-3 max-w-md">

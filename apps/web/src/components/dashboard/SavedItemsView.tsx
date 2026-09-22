@@ -9,15 +9,13 @@ export const SavedItemsView: React.FC = () => {
     currentUser,
     users,
     projects,
-    services,
     events,
     openUserProfile,
     openProjectDetails,
-    openServiceDetails,
     setActiveTab,
   } = useApp();
 
-  const [activeType, setActiveType] = useState<'all' | 'person' | 'project' | 'service' | 'event'>('all');
+  const [activeType, setActiveType] = useState<'all' | 'person' | 'project' | 'event'>('all');
 
   // Scope to the signed-in persona — bookmarks are per-user
   const myItems = savedItems.filter((s) => s.userId === currentUser.id);
@@ -36,7 +34,7 @@ export const SavedItemsView: React.FC = () => {
             <h2 className="text-2xl font-bold text-zinc-900 tracking-tight">Saved Bookmarks</h2>
           </div>
           <p className="text-sm text-zinc-600 mt-1">
-            Access your bookmarked students, faculty, projects, services, and upcoming campus events.
+            Access your bookmarked students, faculty, projects, and upcoming campus events.
           </p>
         </div>
         <div className="text-xs text-zinc-500">
@@ -50,7 +48,6 @@ export const SavedItemsView: React.FC = () => {
           { id: 'all', label: `All (${myItems.length})` },
           { id: 'person', label: 'People' },
           { id: 'project', label: 'Projects' },
-          { id: 'service', label: 'Services' },
           { id: 'event', label: 'Events' },
         ].map((tab) => (
           <button
@@ -73,7 +70,7 @@ export const SavedItemsView: React.FC = () => {
           <Bookmark className="w-10 h-10 text-zinc-300 mx-auto mb-2" />
           <h3 className="text-sm font-semibold text-zinc-900">No saved items found</h3>
           <p className="text-xs text-zinc-500 mt-1 max-w-sm mx-auto">
-            Click the bookmark icon on any person, project, service, or event card to save it here for quick access.
+            Click the bookmark icon on any person, project, or event card to save it here for quick access.
           </p>
           <button
             onClick={() => setActiveTab('people')}
@@ -151,36 +148,6 @@ export const SavedItemsView: React.FC = () => {
               );
             }
 
-            if (item.itemType === 'service') {
-              const service = services.find((s) => s.id === item.itemId);
-              if (!service) return null;
-              return (
-                <div
-                  key={item.id}
-                  className="p-4 bg-white rounded-xl border border-zinc-200 flex items-center justify-between gap-4"
-                >
-                  <div>
-                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-zinc-100 text-zinc-700">
-                      {service.category}
-                    </span>
-                    <h4
-                      onClick={() => setActiveTab('services')}
-                      className="font-bold text-xs text-zinc-900 mt-1 hover:underline cursor-pointer line-clamp-1"
-                    >
-                      {service.title}
-                    </h4>
-                    <div className="text-[11px] text-zinc-500">Starting at {service.startingPrice}</div>
-                  </div>
-                  <button
-                    onClick={() => toggleSaveItem('service', service.id)}
-                    className="p-1.5 text-zinc-400 hover:text-rose-600 rounded"
-                    title="Remove from saved"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              );
-            }
 
             if (item.itemType === 'event') {
               const event = events.find((e) => e.id === item.itemId);

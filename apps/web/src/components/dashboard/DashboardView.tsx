@@ -24,13 +24,11 @@ export const DashboardView: React.FC = () => {
     projects,
     applications,
     collabRequests,
-    services,
     portfolio,
     users,
     handleApplicationStatus,
     handleCollaborationStatus,
     setIsProjectCreateOpen,
-    setIsServiceCreateOpen,
     setIsPortfolioAddOpen,
     openUserProfile,
     setActiveTab,
@@ -96,15 +94,6 @@ export const DashboardView: React.FC = () => {
             <Plus className="w-4 h-4" />
             Post New Project
           </button>
-          {currentUser.role === 'student' && (
-            <button
-              onClick={() => setIsServiceCreateOpen(true)}
-              className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-xs font-semibold transition-colors border border-zinc-700 flex items-center gap-1.5"
-            >
-              <Sparkles className="w-4 h-4 text-amber-400" />
-              Publish Service
-            </button>
-          )}
           <button
             onClick={() => setIsPortfolioAddOpen(true)}
             className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-xs font-semibold transition-colors border border-zinc-700 flex items-center gap-1.5"
