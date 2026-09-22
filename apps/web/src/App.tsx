@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/common/Navbar';
 import { HomeView } from './components/home/HomeView';
 import { LoginPage } from './components/auth/LoginPage';
+import { OnboardingFlow } from './components/onboarding/OnboardingFlow';
 import { PeopleDiscovery } from './components/discovery/PeopleDiscovery';
 import { ProjectDiscovery } from './components/discovery/ProjectDiscovery';
 import { ProjectDetailView } from './components/projects/ProjectDetailView';
@@ -133,11 +134,18 @@ const AppContent: React.FC = () => {
 /** Root decides between the login gate (live mode, no session) and the
  * full app. Switching modes remounts AppProvider for a fresh data load. */
 const Root: React.FC = () => {
-  const { mode, status } = useAuth();
+  const { mode, status, onboardingCompleted } = useAuth();
 
   if (mode === 'live' && status !== 'authenticated') {
     if (status === 'loading') return <LoadingScreen />;
     return <LoginPage />;
+  }
+
+  // P0: onboarding gates the app — a new user never enters with an empty
+  // role/skills state. Completion persists server-side (a refresh never
+  // reopens it).
+  if (mode === 'live' && !onboardingCompleted) {
+    return <OnboardingFlow />;
   }
 
   return (

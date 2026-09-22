@@ -110,6 +110,9 @@ export class UserRepository {
         professionalProfile: true,
         goals: true,
         createdAt: true,
+        // The user's skills (the DB-backed taxonomy) — the directory renders
+        // them without the per-user portfolio hydration
+        userSkills: { select: { skill: { select: { id: true, name: true } } } },
       },
     });
     return { data: users, nextCursor: users.length === limit ? String(offset + limit) : null };

@@ -42,6 +42,26 @@ const DEMO_PASSWORD_HASH = bcrypt.hashSync(DEMO_PASSWORD, 10);
 async function clearExistingSeedData() {
   // Reverse dependency order. Most of this cascades from users/topics/etc.
   // being deleted, but being explicit keeps this safe if the graph grows.
+
+  // Clean up NON-seed artifacts created BY seed users (test projects,
+  // organizations, teams created while testing) — they RESTRICT the
+  // seed-user deletion via projects_created_by / organizations_created_by.
+  const seedUserIds = (await prisma.user.findMany({ where: { isSeed: true }, select: { id: true } })).map((u) => u.id);
+  if (seedUserIds.length > 0) {
+    await prisma.projectTopic.deleteMany({ where: { project: { createdBy: { in: seedUserIds } } } });
+    await prisma.projectSkillNeeded.deleteMany({ where: { project: { createdBy: { in: seedUserIds } } } });
+    await prisma.projectMember.deleteMany({ where: { project: { createdBy: { in: seedUserIds } } } });
+    await prisma.joinRequest.deleteMany({ where: { project: { createdBy: { in: seedUserIds } } } });
+    await prisma.project.deleteMany({ where: { createdBy: { in: seedUserIds } } });
+    await prisma.membership.deleteMany({ where: { organization: { createdBy: { in: seedUserIds } } } });
+    await prisma.organization.deleteMany({ where: { createdBy: { in: seedUserIds } } });
+    await prisma.researchTeamTopic.deleteMany({ where: { researchTeam: { piUserId: { in: seedUserIds } } } });
+    await prisma.researchTeam.deleteMany({ where: { piUserId: { in: seedUserIds } } });
+    await prisma.connectionRequestHistory.deleteMany({
+      where: { OR: [{ requesterId: { in: seedUserIds } }, { addresseeId: { in: seedUserIds } }] },
+    });
+    await prisma.joinRequest.deleteMany({ where: { userId: { in: seedUserIds } } });
+  }
   await prisma.userResearchTopic.deleteMany({ where: { isSeed: true } });
   await prisma.projectTopic.deleteMany({ where: { isSeed: true } });
   await prisma.projectMember.deleteMany({ where: { isSeed: true } });
@@ -236,6 +256,72 @@ async function main() {
     },
   });
 
+  // ============================================================
+  // Skills taxonomy — the maintainable, database-backed skill list the
+  // whole platform selects from (onboarding, profiles, services, projects).
+  // Structured categories; idempotent upsert by unique name; junk rows
+  // (Skill_<timestamp> leftovers from failed test validations) removed.
+  // ============================================================
+  const SKILL_TAXONOMY: Record<string, string[]> = {
+    "Technology & Software": [
+      "C", "C++", "C#", "Java", "Python", "JavaScript", "TypeScript", "Go", "Rust", "PHP",
+      "Kotlin", "Swift", "HTML", "CSS", "React", "Next.js", "Node.js", "Express.js",
+      "Django", "Flask", "Spring Boot", ".NET", "REST APIs", "GraphQL", "Git", "GitHub",
+      "Docker", "Linux", "SQL", "PostgreSQL", "MySQL", "MongoDB", "Firebase", "Supabase",
+    ],
+    "AI & Data": [
+      "Artificial Intelligence", "Machine Learning", "Deep Learning", "Generative AI",
+      "Natural Language Processing", "Computer Vision", "Data Science", "Data Analysis",
+      "Statistics", "TensorFlow", "PyTorch", "OpenCV", "LLMs", "Prompt Engineering",
+    ],
+    "Electronics & Hardware": [
+      "Embedded Systems", "Arduino", "ESP32", "ESP8266", "Raspberry Pi", "STM32",
+      "PCB Design", "Circuit Design", "Electronics", "IoT", "Robotics", "Sensors",
+      "Microcontrollers", "VLSI", "Verilog", "VHDL", "FPGA", "MATLAB", "Simulink",
+      "3D Printing", "CAD",
+    ],
+    "Design": [
+      "UI Design", "UX Design", "Graphic Design", "Figma", "Adobe Photoshop",
+      "Adobe Illustrator", "Canva", "Branding", "Logo Design", "Presentation Design",
+      "Design Systems", "Motion Design", "3D Design", "Blender", "CAD Design",
+    ],
+    "Content & Media": [
+      "Video Editing", "Photography", "Videography", "Photo Editing", "Animation",
+      "Motion Graphics", "Content Writing", "Copywriting", "Script Writing", "Blogging",
+      "Social Media", "SEO", "Voice Over", "Podcasting",
+    ],
+    "Business & Professional": [
+      "Entrepreneurship", "Business Strategy", "Marketing", "Digital Marketing", "Sales",
+      "Market Research", "Financial Analysis", "Project Management", "Product Management",
+      "Public Relations", "Event Management", "Communication", "Leadership",
+      "Presentation", "Public Speaking",
+    ],
+    "Academic": [
+      "Mathematics", "Physics", "Chemistry", "Biology", "Economics", "Research",
+      "Academic Writing", "Technical Writing", "Literature Review", "Tutoring", "Mentoring",
+    ],
+    "Other": [
+      "Fashion", "Styling", "Music", "Singing", "Instrumental Music", "Dance", "Sports",
+      "Fitness", "Event Photography", "Event Planning", "Translation", "Languages",
+      "Community Building",
+    ],
+  };
+
+  // Remove junk skills (Skill_<timestamp> leftovers) and stale test-created rows
+  await prisma.skill.deleteMany({ where: { name: { startsWith: "Skill_" } } });
+
+  let skillCount = 0;
+  for (const [category, names] of Object.entries(SKILL_TAXONOMY)) {
+    for (const name of names) {
+      await prisma.skill.upsert({
+        where: { name },
+        update: { category, isSeed: true },
+        create: { name, category, isSeed: true },
+      });
+      skillCount++;
+    }
+  }
+
   console.log("Seed complete:", {
     student: student.email,
     professor: professor.email,
@@ -243,6 +329,7 @@ async function main() {
     topic: topic.slug,
     club: club.slug,
     project: project.name,
+    skills: skillCount,
   });
 }
 

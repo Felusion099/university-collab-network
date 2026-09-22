@@ -9,6 +9,8 @@ export class SkillRepository {
       where,
       skip: params.skip,
       take: params.take + 1,
+      // Deterministic alphabetical order — the taxonomy renders grouped and
+      // complete (arbitrary order could hide skills past the page limit)
       orderBy: { name: "asc" },
     });
   }

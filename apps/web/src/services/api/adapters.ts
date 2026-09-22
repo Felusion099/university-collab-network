@@ -119,9 +119,14 @@ export function mapApiUser(raw: UserProfileResponse): User {
   const username = str(raw.username) || str(raw.email).split('@')[0] || 'member';
 
   const portfolio = raw.portfolio;
+  // Skills: the composed portfolio (detail view) OR the DB-backed
+  // user_skills from the list rows (the directory — no N+1 hydration)
   const skillNames = arr<UserSkillRef>(portfolio?.skills).map((s) => s.name);
+  const listSkills = arr<{ skill?: { name?: string } }>((raw as AnyRow).userSkills)
+    .map((us) => us.skill?.name ?? '')
+    .filter(Boolean);
   const expertise = strArr(professor?.expertise);
-  const skills = skillNames.length > 0 ? skillNames : expertise;
+  const skills = skillNames.length > 0 ? skillNames : listSkills.length > 0 ? listSkills : expertise;
 
   const bioText = str(profile?.bio ?? '');
   const headline = bioText.split('\n')[0]?.trim().slice(0, 90) ?? '';

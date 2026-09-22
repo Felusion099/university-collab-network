@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { authApi } from '../services/api/auth';
+import { apiFetch } from '../services/api/client';
 import { API_MODE, type AppMode } from '../lib/config';
 import { onSessionExpired, getAccessToken } from '../services/api/session';
 import { liveRefreshMe } from '../services/api/live';
@@ -12,6 +13,8 @@ interface AuthContextType {
   mode: AppMode;
   status: AuthStatus;
   liveUser: User | null;
+  onboardingCompleted: boolean;
+  setOnboardingCompleted: (v: boolean) => void;
   loginError: string | null;
   login: (email: string, password: string) => Promise<boolean>;
   signup: (
@@ -37,7 +40,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return getAccessToken() ? 'loading' : 'anonymous';
   });
   const [liveUser, setLiveUser] = useState<User | null>(null);
+  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean>(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+
+  /** Fetch the onboarding marker from the backend (users.onboarding_completed_at) */
+  const fetchOnboardingStatus = useCallback(async (): Promise<boolean> => {
+    try {
+      const status = await apiFetch<{ completed: boolean }>('/users/me/onboarding');
+      setOnboardingCompleted(status.completed);
+      return status.completed;
+    } catch {
+      return false;
+    }
+  }, []);
 
   // Session expiry (401 → refresh failed) flips back to the login screen
   useEffect(() => {
@@ -59,6 +74,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (user) {
         setLiveUser(user);
         setStatus('authenticated');
+        await fetchOnboardingStatus();
       } else {
         setStatus('anonymous');
       }
@@ -80,6 +96,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         setLiveUser(user);
         setStatus('authenticated');
+        await fetchOnboardingStatus();
         return true;
       } catch (err) {
         let message: string;
@@ -131,6 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // best-effort — clear locally regardless
     }
     setLiveUser(null);
+    setOnboardingCompleted(false);
     setStatus('anonymous');
   }, []);
 
@@ -158,6 +176,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         mode,
         status,
         liveUser: liveUser ?? (mode === 'demo' ? demoFallback[0] ?? null : null),
+        onboardingCompleted,
+        setOnboardingCompleted,
         loginError,
         login,
         signup,
