@@ -120,6 +120,11 @@ export class ProjectRepository {
   }
 
   /** Projects have a `status` enum with `archived` — soft-delete uses this rather than a hard row delete, per API_CONTRACT.md §3's "soft-delete where applicable" (this is the "applicable" case). See DECISIONS.md D-013. */
+  /** HARD delete — the database row is removed; dependents cascade. */
+  async hardDelete(id: string) {
+    await prisma.project.delete({ where: { id } });
+  }
+
   async archive(id: string) {
     return prisma.project.update({ where: { id }, data: { status: "archived" } });
   }

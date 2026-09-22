@@ -72,10 +72,13 @@ export async function create(requesterId: string, addresseeId: string, message?:
       throw new ConflictError("This user has already sent you a connection request — respond to it instead");
     }
     if (existing.status === "declined") {
-      // Re-request after a decline: revive the row (the pair is unique)
-      const revived = await connectionRepository.updateStatus(existing.id, "pending");
+      // Re-request after a decline: revive the row (the pair is unique) AND
+      // update the message to THIS request's message — reusing the stale
+      // message from the previous declined request was a correctness bug
+      // (the receiver saw Message 1 when Message 2 was just sent).
+      const revived = await connectionRepository.updateWithMessage(existing.id, "pending", message ?? "");
       await prisma.connectionRequestHistory.create({
-        data: { requesterId, addresseeId },
+        data: { requesterId, addresseeId, message: message ?? "" },
       });
       await notifyRequest(addresseeId, revived.id, requesterId, message);
       return revived;
@@ -84,7 +87,7 @@ export async function create(requesterId: string, addresseeId: string, message?:
 
   const result = await connectionRepository.create(requesterId, addresseeId, message ?? "");
   await prisma.connectionRequestHistory.create({
-    data: { requesterId, addresseeId },
+    data: { requesterId, addresseeId, message: message ?? "", status: "pending" },
   });
   await notifyRequest(addresseeId, result.id, requesterId, message);
 

@@ -270,10 +270,12 @@ export async function listForTeam(
   return buildPaginatedResponse(items, skip, take);
 }
 
-/** Caller's own requests/invitations (pending) — My Projects "Pending" section. */
+/** Caller's own requests/invitations — ALL statuses so the sender sees
+ * Pending/Accepted/Rejected correctly (proposals were stuck as "sent"
+ * forever when only pending rows were returned). */
 export async function listMine(userId: string, direction?: JoinRequestDirection) {
   const items = await prisma.joinRequest.findMany({
-    where: { userId, status: "pending", ...(direction ? { direction } : {}) },
+    where: { userId, ...(direction ? { direction } : {}) },
     include: {
       project: { select: { id: true, name: true, status: true } },
       researchTeam: { select: { id: true, name: true } },

@@ -1080,6 +1080,10 @@ model ConnectionRequestHistory {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   requesterId String   @map("requester_id") @db.Uuid
   addresseeId String   @map("addressee_id") @db.Uuid
+  /// The message associated with THIS request attempt — history preserves
+  /// per-attempt data instead of overwriting the live row's message.
+  message     String   @default("")
+  status      String   @default("pending")
   isSeed      Boolean  @default(false) @map("is_seed")
   createdAt   DateTime @default(now()) @map("created_at")
   requester   User     @relation("ConnectionHistoryRequester", fields: [requesterId], references: [id], onDelete: Cascade)

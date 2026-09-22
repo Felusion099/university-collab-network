@@ -48,6 +48,22 @@ export class ConnectionRepository {
     return prisma.connection.delete({ where: { id } });
   }
 
+  /** Revive a declined/cancelled request with THIS request's message —
+   * the pair's row is unique, so a re-request updates in place. */
+  async updateWithMessage(id: string, status: string, message: string) {
+    return prisma.connection.update({
+      where: { id },
+      data: {
+        status: status as Prisma.ConnectionUpdateInput["status"],
+        message,
+      },
+      include: {
+        requester: { select: SAFE_USER_SELECT },
+        addressee: { select: SAFE_USER_SELECT },
+      },
+    });
+  }
+
   async list(userId: string, params: { skip: number; take: number; status?: string }) {
     const where: Prisma.ConnectionWhereInput = {
       OR: [{ requesterId: userId }, { addresseeId: userId }],

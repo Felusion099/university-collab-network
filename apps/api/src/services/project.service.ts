@@ -86,13 +86,15 @@ export async function update(userId: string, id: string, input: UpdateProjectReq
   });
 }
 
-/** Hard delete is not used for projects — see DECISIONS.md D-013 ("soft-delete where applicable"): archiving via status is the applicable case here. */
+/** Owner deletes the project FOR REAL — the database row is removed and the
+ * dependent relationships (members, topics, skills needed, join requests,
+ * project conversations) cascade cleanly. Owner-only, server-verified. */
 export async function remove(userId: string, id: string) {
   const existing = await projectRepository.findById(id);
   if (!existing) throw new NotFoundError("Project not found");
   const isOwner = await projectRepository.isOwner(id, userId);
-  if (!isOwner) throw new ForbiddenError("Only the project creator can archive this project");
-  await projectRepository.archive(id);
+  if (!isOwner) throw new ForbiddenError("Only the project creator can delete this project");
+  await projectRepository.hardDelete(id);
 }
 
 export async function join(userId: string, projectId: string, roleOnProject?: string) {
