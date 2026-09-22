@@ -131,17 +131,6 @@ export const UserProfileModal: React.FC = () => {
                 </>
               ) : (
                 <>
-                  <button
-                    onClick={() => toggleSaveItem('person', user.id)}
-                    className={`p-2 rounded-lg border transition-colors ${
-                      isSaved
-                        ? 'border-blue-200 bg-blue-50 text-blue-600'
-                        : 'border-zinc-200 text-zinc-400 hover:text-zinc-700 hover:bg-zinc-50'
-                    }`}
-                    title={isSaved ? 'Saved' : 'Save member'}
-                  >
-                    <Bookmark className={`w-4 h-4 ${isSaved ? 'fill-current' : ''}`} />
-                  </button>
                   {(() => {
                     // Relationship state drives the profile's actions —
                     // professional connections are separate from collaboration

@@ -82,3 +82,30 @@ export async function leave(req: Request, res: Response, next: NextFunction): Pr
     next(err);
   }
 }
+
+export async function assignRole(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { role, roleTitle } = req.body as { role: string; roleTitle?: string };
+    const result = await organizationService.assignRole(req.user!.id, req.params.id as string, req.params.userId as string, { role, roleTitle });
+    res.status(200).json(result);
+  } catch (err: unknown) {
+    next(err);
+  }
+}
+
+export async function removeMember(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    res.status(200).json(await organizationService.removeMember(req.user!.id, req.params.id as string, req.params.userId as string));
+  } catch (err: unknown) {
+    next(err);
+  }
+}
+
+export async function transferOwnership(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { userId } = req.body as { userId: string };
+    res.status(200).json(await organizationService.transferOwnership(req.user!.id, req.params.id as string, userId));
+  } catch (err: unknown) {
+    next(err);
+  }
+}

@@ -274,6 +274,10 @@ model Membership {
   organizationId String?        @map("organization_id") @db.Uuid
   researchTeamId String?        @map("research_team_id") @db.Uuid
   role           MembershipRole @default(member)
+  /// Custom community role title (President, Vice President, PR Head,
+  /// Tech Head, ...) — the enum `role` stays the RANK basis for the
+  /// hierarchy enforcement (founder=100 > leader=90 > advisor=80 > member=10).
+  roleTitle      String?        @map("role_title")
   joinedAt       DateTime       @default(now()) @map("joined_at")
   isSeed         Boolean        @default(false) @map("is_seed")
   createdAt      DateTime       @default(now()) @map("created_at")
