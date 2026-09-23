@@ -1,6 +1,7 @@
 packages:
   - "apps/*"
   - "packages/*"
+dangerouslyAllowAllBuilds: true
 onlyBuiltDependencies:
   - "@prisma/client"
   - "@prisma/engines"
