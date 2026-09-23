@@ -13,7 +13,7 @@ const REFRESH_COOKIE_NAME = "refresh_token";
 // minimizes where the browser sends this cookie.
 const REFRESH_COOKIE_PATH = "/api/v1/auth";
 
-function setRefreshCookie(res: Response, token: string, maxAgeMs: number): void {
+export function setRefreshCookie(res: Response, token: string, maxAgeMs: number): void {
   res.cookie(REFRESH_COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",

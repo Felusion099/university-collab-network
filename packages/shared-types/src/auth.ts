@@ -102,3 +102,30 @@ export const ResetPasswordResponseSchema = z.object({
   reset: z.literal(true),
 });
 export type ResetPasswordResponse = z.infer<typeof ResetPasswordResponseSchema>;
+// ============================================================================
+// OTP (one-time passcode) — passwordless signup/login
+// ============================================================================
+
+// POST /auth/otp/request
+export const OtpRequestSchema = z.object({
+  email: z.string().email(),
+  purpose: z.enum(["signup", "login"]),
+  fullName: z.string().max(120).optional(),
+  requestedRole: RequestedRoleEnum.optional(),
+});
+export type OtpRequest = z.infer<typeof OtpRequestSchema>;
+
+export const OtpRequestResponseSchema = z.object({
+  sent: z.literal(true),
+  expiresInMinutes: z.number(),
+  // ONLY present when NODE_ENV !== production (dev testing convenience)
+  devCode: z.string().optional(),
+});
+export type OtpRequestResponse = z.infer<typeof OtpRequestResponseSchema>;
+
+// POST /auth/otp/verify
+export const OtpVerifySchema = z.object({
+  email: z.string().email(),
+  code: z.string().min(6).max(6),
+});
+export type OtpVerify = z.infer<typeof OtpVerifySchema>;

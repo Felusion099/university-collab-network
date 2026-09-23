@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { randomBytes, createHash } from "node:crypto";
+import type { UserRole } from "@app/shared-types";
 import { userRepository } from "../repositories/user.repository.js";
 import { authRepository } from "../repositories/auth.repository.js";
 import { emailService } from "./email.service.js";
@@ -280,7 +281,7 @@ export async function signup(input: SignupRequest): Promise<SignupResponse> {
     requestedRole: input.requestedRole,
     status: "pending_verification",
     universityDomain: domain,
-    ...buildRoleProfileCreateData(input.requestedRole, input.fullName),
+    ...buildRoleProfileCreateData(input.requestedRole as RequestedRole, input.fullName),
     privacySettings: { create: {} },
   });
 
@@ -474,6 +475,73 @@ export const authService = {
   resetPassword,
   createEmailVerificationToken,
   createPasswordResetToken,
+  createFromOtp,
+  loginWithActiveUser,
 };
 
 export type { RequestedRole };
+
+// ============================================================================
+// OTP (one-time passcode) helpers — passwordless signup/login
+// ============================================================================
+
+export interface OtpSignupInput {
+  email: string;
+  fullName: string;
+  requestedRole: UserRole;
+}
+
+/** Create an account from an OTP signup (passwordless): the caller proved
+ * email ownership by possessing the code, so the account is ACTIVE (email
+ * verified) immediately — no pending_verification limbo. Same role-profile
+ * + privacy-settings creation as signup. */
+export async function createFromOtp(input: OtpSignupInput) {
+  const existing = await userRepository.findByEmail(input.email.toLowerCase());
+  if (existing) throw new AppError("An account with this email already exists", 409, "EMAIL_TAKEN");
+
+  const domain = input.email.split("@")[1]?.toLowerCase();
+  const username = await generateUniqueUsername(input.email);
+  // A random unusable password — OTP is the real credential; the account
+  // cannot be password-logged-in unless the user sets one later.
+  const passwordHash = await hashPassword(randomBytes(24).toString("hex"));
+
+  const user = await userRepository.create({
+    email: input.email.toLowerCase(),
+    username,
+    passwordHash,
+    requestedRole: input.requestedRole,
+    status: "active",
+    universityDomain: domain,
+    ...buildRoleProfileCreateData(input.requestedRole as RequestedRole, input.fullName),
+    privacySettings: { create: {} },
+  });
+  return user;
+}
+
+export interface UserLike {
+  id: string;
+  email: string;
+  passwordHash: string;
+  requestedRole: string;
+  status: string;
+}
+
+/** Issue the token pair for an already-valid user (OTP path — no password
+ * check; the code possession WAS the check). Refresh rotation included. */
+export async function loginWithActiveUser(user: UserLike): Promise<LoginResult> {
+  if (user.status === "suspended" || user.status === "banned") {
+    throw new AppError("This account has been suspended", 403, "ACCOUNT_SUSPENDED");
+  }
+
+  const accessToken = signAccessToken(user as Pick<User, "id">);
+  const refreshToken = signRefreshToken(user.id);
+  const refreshTokenMaxAgeMs = getRefreshTtlMs();
+
+  await authRepository.createRefreshToken({
+    user: { connect: { id: user.id } },
+    tokenHash: hashOpaqueToken(refreshToken),
+    expiresAt: new Date(Date.now() + refreshTokenMaxAgeMs),
+  });
+
+  return { accessToken, refreshToken, refreshTokenMaxAgeMs, user: toAuthenticatedUser(user as never) };
+}

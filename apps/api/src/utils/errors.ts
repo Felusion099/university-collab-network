@@ -62,6 +62,13 @@ export class BadRequestError extends AppError {
   }
 }
 
+export class GoneError extends AppError {
+  constructor(message: string = "Resource expired", code: string = "GONE") {
+    super(message, 410, code);
+    this.name = "GoneError";
+  }
+}
+
 export class RateLimitError extends AppError {
   constructor(message: string = "Too many requests", code: string = "RATE_LIMITED") {
     super(message, 429, code);

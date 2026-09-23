@@ -1120,3 +1120,28 @@ model Notice {
   @@index([createdAt])
   @@map("notices")
 }
+
+// ============================================================================
+// OTP (one-time passcode) — passwordless signup/login. A 6-digit code is
+// generated per request, stored HASHED with an expiry + attempt cap, and
+// "emailed" via the email service (MockEmailService logs it in dev; a real
+// SMTP provider in production). Signup-purpose rows carry the pending
+// profile data (fullName, requestedRole) so verification creates the account.
+// ============================================================================
+
+model OtpCode {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email         String
+  codeHash      String    @map("code_hash")
+  purpose       String
+  fullName      String?   @map("full_name")
+  requestedRole String?   @map("requested_role")
+  attempts      Int       @default(0)
+  consumedAt    DateTime? @map("consumed_at")
+  expiresAt     DateTime  @map("expires_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([email, purpose])
+  @@map("otp_codes")
+}

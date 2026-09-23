@@ -3,6 +3,7 @@ import { logger } from "../utils/logger.js";
 export interface EmailService {
   sendVerificationEmail(to: string, token: string): Promise<void>;
   sendPasswordResetEmail(to: string, token: string): Promise<void>;
+  sendOtpEmail(to: string, code: string): Promise<void>;
 }
 
 function getAppBaseUrl(): string {
@@ -24,6 +25,13 @@ function buildResetLink(token: string): string {
  * provider account.
  */
 export class MockEmailService implements EmailService {
+  async sendOtpEmail(to: string, code: string): Promise<void> {
+    logger.info(
+      { to, code },
+      "[MockEmailService] OTP code (not actually sent)",
+    );
+  }
+
   async sendVerificationEmail(to: string, token: string): Promise<void> {
     logger.info(
       { to, link: buildVerifyLink(token) },
@@ -69,6 +77,11 @@ export class ResendEmailService implements EmailService {
       "Reset your password",
       this.emailHtml(buildResetLink(token), "Reset password"),
     );
+  }
+
+  async sendOtpEmail(to: string, code: string): Promise<void> {
+    const html = `<p>Your verification code is:</p><p style="font-size:28px;font-weight:bold;letter-spacing:6px;">${code}</p><p>It expires in 10 minutes. If you didn't request it, ignore this email.</p>`;
+    await this.send(to, "Your verification code", html);
   }
 
   private emailHtml(link: string, action: string): string {

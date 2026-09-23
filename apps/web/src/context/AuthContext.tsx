@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { authApi } from '../services/api/auth';
 import { apiFetch } from '../services/api/client';
+import { setAccessToken } from '../services/api/session';
 import { API_MODE, type AppMode } from '../lib/config';
 import { onSessionExpired, getAccessToken } from '../services/api/session';
 import { liveRefreshMe } from '../services/api/live';
@@ -17,6 +18,7 @@ interface AuthContextType {
   setOnboardingCompleted: (v: boolean) => void;
   loginError: string | null;
   login: (email: string, password: string) => Promise<boolean>;
+  otpLogin: (email: string, code: string) => Promise<boolean>;
   signup: (
     email: string,
     password: string,
@@ -115,6 +117,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [],
   );
 
+  /** Passwordless: verify the 6-digit code → the account is created (signup)
+   * or logged in (login) — the tokens come straight from the verify response. */
+  const otpLogin = useCallback(
+    async (email: string, code: string): Promise<boolean> => {
+      setLoginError(null);
+      try {
+        const res = await apiFetch<{ accessToken: string }>('/auth/otp/verify', {
+          method: 'POST',
+          body: { email, code },
+          skipAuthRetry: true,
+        });
+        setAccessToken(res.accessToken);
+        const user = await liveRefreshMe();
+        if (!user) {
+          setLoginError('Verified, but the profile could not be loaded.');
+          return false;
+        }
+        setLiveUser(user);
+        setStatus('authenticated');
+        await fetchOnboardingStatus();
+        return true;
+      } catch (err) {
+        let message: string;
+        const code2 = err && typeof err === 'object' && 'code' in err ? String((err as { code: unknown }).code) : '';
+        if (err instanceof TypeError || code2 === 'UNKNOWN_ERROR') {
+          message = 'Cannot reach the API — is it running? Start it with: pnpm dev:api';
+        } else if (err && typeof err === 'object' && 'message' in err && (err as Error).message) {
+          message = (err as Error).message;
+        } else {
+          message = 'Verification failed.';
+        }
+        setLoginError(message);
+        return false;
+      }
+    },
+    [],
+  );
+
   const signup = useCallback(
     async (
       email: string,
@@ -180,6 +220,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setOnboardingCompleted,
         loginError,
         login,
+        otpLogin,
         signup,
         logout,
         enterDemo,
