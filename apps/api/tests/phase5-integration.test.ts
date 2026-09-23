@@ -552,11 +552,13 @@ describe("Phase 5 - Complete API Endpoints Integration Test Suite", () => {
       });
       assert.equal(resDelete.status, 204);
 
+      // Hard delete per the current spec (PHASE 4.4): the database row is
+      // actually REMOVED (dependents cascade) — not archived/hidden.
       const dbProject = await prisma.project.findUnique({ where: { id: projectId } });
       assert.equal(
-        dbProject?.status,
-        "archived",
-        "Projects must be soft-deleted to archived status per D-013",
+        dbProject,
+        null,
+        "DELETE must remove the project row from the database (hard delete)",
       );
     });
   });
