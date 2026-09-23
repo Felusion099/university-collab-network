@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { Layers, Users, Calendar, Check, Search, ExternalLink } from 'lucide-react';
 
 export const CommunitiesDiscovery: React.FC = () => {
-  const { communities, toggleJoinCommunity, currentUser, globalSearch, setGlobalSearch, openUserProfile, users } = useApp();
+  const { communities, toggleJoinCommunity, currentUser, globalSearch, setGlobalSearch, openUserProfile, users, openCommunityDetails } = useApp();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   const categories = ['all', 'Tech Society', 'Research Lab', 'Design Studio', 'Club'];
@@ -119,7 +119,12 @@ export const CommunitiesDiscovery: React.FC = () => {
                   </button>
                 </div>
 
-                <h3 className="font-bold text-base text-zinc-900">{comm.name}</h3>
+                <h3
+                  onClick={() => openCommunityDetails(comm.id)}
+                  className="font-bold text-base text-zinc-900 hover:underline cursor-pointer"
+                >
+                  {comm.name}
+                </h3>
                 <p className="text-xs text-zinc-500 font-mono mt-0.5">@{comm.handle} · {comm.university}</p>
 
                 <p className="text-xs text-zinc-600 mt-3 leading-relaxed line-clamp-3">

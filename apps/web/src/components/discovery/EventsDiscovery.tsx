@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { Calendar, MapPin, Users, Clock, CheckCircle2, Bookmark, Search } from 'lucide-react';
 
 export const EventsDiscovery: React.FC = () => {
-  const { events, toggleRsvpEvent, toggleSaveItem, isItemSaved, globalSearch, setGlobalSearch } = useApp();
+  const { events, toggleRsvpEvent, toggleSaveItem, isItemSaved, globalSearch, setGlobalSearch, openEventDetails } = useApp();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   const categories = ['all', 'Hackathon', 'Workshop', 'Seminar', 'Exhibition'];
@@ -102,7 +102,12 @@ export const EventsDiscovery: React.FC = () => {
                     </span>
                   </div>
 
-                  <h3 className="text-base font-bold text-zinc-900 mt-1">{ev.title}</h3>
+                  <h3
+                    onClick={() => openEventDetails(ev.id)}
+                    className="text-base font-bold text-zinc-900 mt-1 hover:underline cursor-pointer"
+                  >
+                    {ev.title}
+                  </h3>
                   <p className="text-xs text-zinc-600 mt-1 max-w-2xl leading-relaxed">
                     {ev.description}
                   </p>

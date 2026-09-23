@@ -10,6 +10,8 @@ import { ProjectDiscovery } from './components/discovery/ProjectDiscovery';
 import { ProjectDetailView } from './components/projects/ProjectDetailView';
 import { CommunitiesDiscovery } from './components/discovery/CommunitiesDiscovery';
 import { StartupsView } from './components/discovery/StartupsView';
+import { CommunityDetailView } from './components/discovery/CommunityDetailView';
+import { EventDetailView } from './components/discovery/EventDetailView';
 import { EventsDiscovery } from './components/discovery/EventsDiscovery';
 import { AnnouncementsView } from './components/discovery/AnnouncementsView';
 import { AdminPanelView } from './components/admin/AdminPanelView';
@@ -65,7 +67,7 @@ const ToastHost: React.FC = () => {
 };
 
 const AppContent: React.FC = () => {
-  const { activeTab, isLoading, selectedProjectId, setSelectedProjectId } = useApp();
+  const { activeTab, isLoading, selectedProjectId, setSelectedProjectId, selectedCommunityId, setSelectedCommunityId, selectedEventId, setSelectedEventId } = useApp();
 
   return (
     <div className="min-h-screen bg-stone-50 text-zinc-900 flex flex-col font-sans selection:bg-zinc-900 selection:text-white">
@@ -78,6 +80,10 @@ const AppContent: React.FC = () => {
           <LoadingScreen />
         ) : selectedProjectId ? (
           <ProjectDetailView />
+        ) : selectedCommunityId ? (
+          <CommunityDetailView />
+        ) : selectedEventId ? (
+          <EventDetailView />
         ) : (
           <>
             {activeTab === 'home' && <HomeView />}
