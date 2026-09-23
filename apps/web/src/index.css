@@ -1,7 +1,78 @@
 @import "tailwindcss";
 
-/* Custom keyframe animations (used via .animate-* utilities below — the
- * tailwindcss-animate plugin is not installed, so these are hand-rolled). */
+/* ============================================================================
+ * Design tokens — surface hierarchy + dark mode via CSS variable overrides.
+ *
+ * PHASE 13 (card contrast): the page background is a slightly deeper warm
+ * neutral; cards (bg-white) stay a cleaner, lighter surface — subtle
+ * separation, centralized here, not hardcoded per component.
+ *
+ * PHASE 14 (dark mode): Tailwind v4 emits theme variables as CSS custom
+ * properties, so redefining them under `.dark` flips EVERY existing utility
+ * (bg-white, text-zinc-900, border-zinc-200…) with zero component changes.
+ * The mapping is thoughtful, not a blind inversion: dark surfaces get
+ * darker tints for colored states, buttons invert to light, and borders
+ * stay visible. The user's choice persists (localStorage + the .dark class
+ * on <html>) — never forced.
+ * ==========================================================================*/
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---- Light theme (default) — slightly deeper page background for the
+ * card/surface separation ---- */
+:root {
+  color-scheme: light;
+  --color-stone-50: #f3f2f0;
+}
+
+/* ---- Dark theme ---- */
+.dark {
+  color-scheme: dark;
+
+  /* Surfaces: page deepest, cards lighter (the spec: cards distinguishable
+   * from the background) */
+  --color-stone-50: #121110;
+  --color-stone-100: #1c1a19;
+  --color-white: #211f1e;
+
+  /* Borders stay visible */
+  --color-zinc-50: #1c1a19;
+  --color-zinc-100: #262423;
+  --color-zinc-200: #3a3836;
+  --color-zinc-300: #555250;
+  --color-zinc-400: #8d8a86;
+  --color-zinc-500: #a8a5a1;
+  --color-zinc-600: #cfccc8;
+  --color-zinc-700: #e2e0dd;
+  --color-zinc-800: #f0efee;
+  --color-zinc-900: #fafafa;
+
+  /* Buttons (bg-zinc-900 + text-white) invert to light-on-dark */
+  --color-zinc-950: #f5f5f4;
+
+  /* Colored tints: 50-shades → deep tints, 200-borders → deep, 800-text → light */
+  --color-blue-50: #0d1524;
+  --color-blue-200: #1e3a5f;
+  --color-blue-800: #93c5fd;
+  --color-emerald-50: #0a1a14;
+  --color-emerald-200: #14532d;
+  --color-emerald-800: #6ee7b7;
+  --color-amber-50: #1c1408;
+  --color-amber-200: #78350f;
+  --color-amber-800: #fcd34d;
+  --color-red-50: #1f0a0a;
+  --color-red-200: #7f1d1d;
+  --color-red-800: #fca5a5;
+  --color-indigo-50: #10142a;
+  --color-indigo-200: #312e81;
+  --color-indigo-800: #a5b4fc;
+  --color-purple-50: #170f21;
+  --color-purple-200: #581c87;
+  --color-purple-800: #d8b4fe;
+}
+
+/* Custom keyframe animations (the tailwindcss-animate plugin is not
+ * installed, so these are hand-rolled) */
 @keyframes fade-in-up {
   from {
     opacity: 0;

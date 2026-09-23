@@ -24,6 +24,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { ActiveTab } from '../../types';
+import { getThemeChoice, setThemeChoice, type ThemeChoice } from '../../lib/theme';
 
 export const Navbar: React.FC = () => {
   const {
@@ -44,7 +45,13 @@ export const Navbar: React.FC = () => {
   const { logout } = useAuth();
   const isDemo = mode === 'demo';
 
+  const handleTheme = (choice: ThemeChoice) => {
+    setTheme(choice);
+    setThemeChoice(choice);
+  };
+
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [theme, setTheme] = useState<ThemeChoice>(() => getThemeChoice());
   const [isPersonaMenuOpen, setIsPersonaMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -333,6 +340,20 @@ export const Navbar: React.FC = () => {
                   </div>
 
                   <div className="pt-1 border-t border-zinc-100">
+                    <div className="px-3 py-1.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">Theme</div>
+                    <div className="px-2 pb-1 flex items-center gap-1">
+                      {(['light', 'dark', 'system'] as ThemeChoice[]).map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => handleTheme(t)}
+                          className={`flex-1 px-2 py-1.5 rounded-md text-[11px] font-medium capitalize transition-colors ${
+                            theme === t ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-100'
+                          }`}
+                        >
+                          {t}
+                        </button>
+                      ))}
+                    </div>
                     <div className="px-3 py-1 text-[11px] text-zinc-400">
                       {currentUser.university}
                     </div>
