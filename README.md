@@ -137,3 +137,43 @@ are absent.
 - All views use fluid grids (`grid-cols-1` → `sm`/`md`/`lg` breakpoints) and wrapping filter bars
 - Modals are viewport-safe (`max-h-[90vh]`, scrollable, full-width on phones)
 - Navbar collapses to a drawer below `xl`; quick actions move into it
+
+## Deploying live (free tiers)
+
+**Stack**: Web on **Vercel** (static) + API on **Render** (Node service) + DB on **Neon** (serverless Postgres).
+
+### 1. Database — Neon (neon.tech)
+1. Sign up with GitHub → **Create project** (free tier, always-on).
+2. Copy the **connection string** (`postgresql://user:pass@ep-xxx.neon.tech/neondb?sslmode=require`).
+
+### 2. API — Render (render.com)
+1. New → **Web Service** → connect this GitHub repo (branch `combined-platform`).
+2. **Root Directory**: `apps/api`
+3. **Build Command**: `pnpm install && pnpm prisma generate && pnpm build`
+4. **Pre-Deploy Command**: `pnpm prisma db push` (applies the schema; safe re-runs)
+5. **Start Command**: `node dist/server.js`
+6. **Environment**:
+   - `NODE_ENV=production`
+   - `DATABASE_URL=<your Neon connection string>`
+   - `JWT_ACCESS_SECRET=<long random string>`
+   - `JWT_REFRESH_SECRET=<another long random string>`
+   - `JWT_ACCESS_TTL=15m` · `JWT_REFRESH_TTL=7d`
+   - `CORS_ALLOWED_ORIGINS=https://<your-vercel-app>.vercel.app`
+   - `APP_BASE_URL=https://<your-vercel-app>.vercel.app`
+   - `UNIVERSITY_EMAIL_DOMAINS=university.edu`
+7. Deploy → note the URL (e.g. `https://ucn-api.onrender.com`).
+8. Seed once (optional): run locally with `DATABASE_URL=<neon string> pnpm prisma:seed`.
+
+### 3. Web — Vercel (vercel.com)
+1. Add New → **Project** → this repo (branch `combined-platform`).
+2. **Root Directory**: `apps/web` (Vercel auto-detects the pnpm workspace + the Vite preset).
+3. **Environment**:
+   - `VITE_API_MODE=live`
+   - `VITE_API_BASE_URL=https://ucn-api.onrender.com/api/v1`
+4. Deploy.
+
+### Production notes
+- The refresh cookie uses `SameSite=None; Secure` in production (set above) — cross-site sessions work.
+- Render's free tier sleeps after 15 min idle — the first request wakes it (~30-60s cold start).
+- The email verification logs the link (dev mail service) — signup → login works without verifying.
+- Sign up a user, then seed/startup data via the Admin Panel (admin account).

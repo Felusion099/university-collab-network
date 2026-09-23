@@ -17,7 +17,10 @@ function setRefreshCookie(res: Response, token: string, maxAgeMs: number): void 
   res.cookie(REFRESH_COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    // Production deployments serve the web and API from different SITES
+    // (e.g. vercel.app → onrender.com): cross-site cookies require
+    // SameSite=None + Secure. Lax stays for same-site local dev.
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     path: REFRESH_COOKIE_PATH,
     maxAge: maxAgeMs,
   });
