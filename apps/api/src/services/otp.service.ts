@@ -32,7 +32,7 @@ function generateCode(): string {
 
 export async function requestOtp(input: {
   email: string;
-  purpose: "signup" | "login";
+  purpose: "signup" | "login" | "verify" | "reset";
   fullName?: string;
   requestedRole?: string;
 }) {
@@ -41,6 +41,18 @@ export async function requestOtp(input: {
   if (input.purpose === "login") {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) throw new NotFoundError("No account with this email — sign up first");
+  }
+
+  if (input.purpose === "verify") {
+    // An account created by password signup (pending_verification) — the
+    // emailed code VERIFIES it. Requires an existing pending account.
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) throw new NotFoundError("No account with this email");
+  }
+
+  if (input.purpose === "reset") {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) throw new NotFoundError("No account with this email");
   }
 
   if (input.purpose === "signup") {
@@ -113,6 +125,23 @@ export async function verifyOtp(input: { email: string; code: string }) {
   // Single-use: consume the code
   await prisma.otpCode.update({ where: { id: row.id }, data: { consumedAt: new Date() } });
 
+  // Verify-purpose → the account was created by password signup and is
+  // pending_verification: the code proves email ownership → mark ACTIVE
+  // and sign the user in.
+  if (row.purpose === "verify") {
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) throw new NotFoundError("No account with this email");
+    if (user.status === "pending_verification") {
+      await prisma.user.update({ where: { id: user.id }, data: { status: "active" } });
+    }
+    return authService.loginWithActiveUser({ ...user, status: "active" });
+  }
+
+  // Reset-purpose → handled by resetPasswordWithOtp (needs the new password)
+  if (row.purpose === "reset") {
+    throw new BadRequestError("Use the reset-password form with this code");
+  }
+
   // Signup-purpose → create the account from the pending profile data
   if (row.purpose === "signup") {
     const existing = await prisma.user.findUnique({ where: { email } });
@@ -135,4 +164,51 @@ export async function verifyOtp(input: { email: string; code: string }) {
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) throw new NotFoundError("No account with this email");
   return authService.loginWithActiveUser(user);
+}
+
+/** Password reset via a one-time code: the emailed code verifies the
+ * requester + the new password is set. Returns the fresh token pair
+ * (signed in on reset). */
+export async function resetPasswordWithOtp(input: {
+  email: string;
+  code: string;
+  newPassword: string;
+}) {
+  const email = input.email.toLowerCase().trim();
+  const code = input.code.trim();
+
+  if (input.newPassword.length < 8) {
+    throw new BadRequestError("Password must be at least 8 characters");
+  }
+
+  const row = await prisma.otpCode.findFirst({
+    where: { email, purpose: "reset", consumedAt: null },
+    orderBy: { createdAt: "desc" },
+  });
+  if (!row) throw new NotFoundError("No active reset code — request a new one");
+  if (row.expiresAt.getTime() < Date.now()) {
+    throw new GoneError("This code has expired — request a new one");
+  }
+  if (row.attempts >= MAX_ATTEMPTS) {
+    throw new UnauthorizedError("Too many wrong attempts — request a new code");
+  }
+
+  const valid = await bcrypt.compare(code, row.codeHash);
+  if (!valid) {
+    await prisma.otpCode.update({ where: { id: row.id }, data: { attempts: { increment: 1 } } });
+    throw new UnauthorizedError("Wrong code");
+  }
+
+  await prisma.otpCode.update({ where: { id: row.id }, data: { consumedAt: new Date() } });
+
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) throw new NotFoundError("No account with this email");
+
+  const passwordHash = await bcrypt.hash(input.newPassword, BCRYPT_SALT_ROUNDS);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash, status: user.status === "pending_verification" ? "active" : user.status },
+  });
+
+  return authService.loginWithActiveUser({ ...user, passwordHash, status: "active" });
 }

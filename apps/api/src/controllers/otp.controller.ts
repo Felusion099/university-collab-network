@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import { OtpRequestSchema, OtpVerifySchema } from "@app/shared-types";
+import { OtpRequestSchema, OtpVerifySchema, OtpResetSchema } from "@app/shared-types";
 import { validateBody } from "../validators/validate.js";
 import * as otpService from "../services/otp.service.js";
 import { setRefreshCookie } from "./auth.controller.js";
@@ -18,6 +18,17 @@ export async function verifyOtp(req: Request, res: Response, next: NextFunction)
   try {
     const input = OtpVerifySchema.parse(req.body);
     const { accessToken, refreshToken, refreshTokenMaxAgeMs, user } = await otpService.verifyOtp(input);
+    setRefreshCookie(res, refreshToken, refreshTokenMaxAgeMs);
+    res.status(200).json({ accessToken, user });
+  } catch (err: unknown) {
+    next(err);
+  }
+}
+
+export async function resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const input = OtpResetSchema.parse(req.body);
+    const { accessToken, refreshToken, refreshTokenMaxAgeMs, user } = await otpService.resetPasswordWithOtp(input);
     setRefreshCookie(res, refreshToken, refreshTokenMaxAgeMs);
     res.status(200).json({ accessToken, user });
   } catch (err: unknown) {

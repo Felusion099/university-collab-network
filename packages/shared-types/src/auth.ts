@@ -109,7 +109,9 @@ export type ResetPasswordResponse = z.infer<typeof ResetPasswordResponseSchema>;
 // POST /auth/otp/request
 export const OtpRequestSchema = z.object({
   email: z.string().email(),
-  purpose: z.enum(["signup", "login"]),
+  // verify = an account created by password signup, pending_verification —
+  // the emailed code VERIFIES the account and signs the user in
+  purpose: z.enum(["signup", "login", "verify", "reset"]),
   fullName: z.string().max(120).optional(),
   requestedRole: RequestedRoleEnum.optional(),
 });
@@ -129,3 +131,10 @@ export const OtpVerifySchema = z.object({
   code: z.string().min(6).max(6),
 });
 export type OtpVerify = z.infer<typeof OtpVerifySchema>;
+// POST /auth/otp/reset — password reset via a one-time code
+export const OtpResetSchema = z.object({
+  email: z.string().email(),
+  code: z.string().min(6).max(6),
+  newPassword: z.string().min(8, "Password must be at least 8 characters"),
+});
+export type OtpReset = z.infer<typeof OtpResetSchema>;

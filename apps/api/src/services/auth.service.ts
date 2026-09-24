@@ -341,6 +341,18 @@ export async function login(input: LoginRequest): Promise<LoginResult> {
     throw new AppError("This account has been suspended", 403, "ACCOUNT_SUSPENDED");
   }
 
+  // Verification gates the login: a password signup creates the account as
+  // pending_verification — the user must click the emailed verification link
+  // (or sign in via the OTP path, which proves email ownership itself)
+  // before they are allowed in.
+  if (user.status === "pending_verification") {
+    throw new AppError(
+      "Verify your email first — click the verification link we sent you, or sign in with a one-time code",
+      403,
+      "EMAIL_NOT_VERIFIED",
+    );
+  }
+
   const accessToken = signAccessToken(user);
   const refreshToken = signRefreshToken(user.id);
   const refreshTokenMaxAgeMs = getRefreshTtlMs();

@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   OtpRequestSchema,
   OtpVerifySchema,
+  OtpResetSchema,
   SignupRequestSchema,
   VerifyEmailRequestSchema,
   LoginRequestSchema,
@@ -21,6 +22,7 @@ router.post("/login", validateBody(LoginRequestSchema), authController.login);
 // OTP (one-time passcode) — passwordless signup/login
 router.post("/otp/request", validateBody(OtpRequestSchema), otpController.requestOtp);
 router.post("/otp/verify", validateBody(OtpVerifySchema), otpController.verifyOtp);
+router.post("/otp/reset", validateBody(OtpResetSchema), otpController.resetPassword);
 router.post("/refresh", authController.refresh);
 router.get("/me", requireAuth, authController.me);
 router.post("/logout", requireAuth, authController.logout);
