@@ -252,23 +252,24 @@ export const LoginPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {!isSignup && (
-                      <div>
-                        <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
-                          Password <span className="text-zinc-400 font-normal">— or use a code below</span>
-                        </label>
-                        <div className="relative">
-                          <Lock className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                          <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Your password"
-                            className={`${inputCls} pl-9`}
-                          />
-                        </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
+                        Password{' '}
+                        {!isSignup && <span className="text-zinc-400 font-normal">— at least 8 characters</span>}
+                      </label>
+                      <div className="relative">
+                        <Lock className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="password"
+                          required
+                          minLength={isSignup ? 8 : 1}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder={isSignup ? 'At least 8 characters — or skip with a code below' : 'Your password'}
+                          className={`${inputCls} pl-9`}
+                        />
                       </div>
-                    )}
+                    </div>
 
                     {isSignup && (
                       <div>
