@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UniCollab Campus — Pitch</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0f0e0d;
+    --card: #1c1a19;
+    --card2: #211f1e;
+    --line: #3a3836;
+    --text: #fafafa;
+    --muted: #a8a5a1;
+    --dim: #71717a;
+    --accent: #6366f1;
+    --accent2: #818cf8;
+    --green: #34d399;
+    --amber: #fbbf24;
+    --pink: #ec4899;
+  }
+  html, body { height: 100%; overflow: hidden; background: var(--bg); }
+  body {
+    font-family: 'Inter', -apple-system, 'Segoe UI', system-ui, sans-serif;
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  .deck { position: relative; width: 100vw; height: 100vh; }
+  .slide {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 6vh 9vw;
+    opacity: 0; transform: translateY(24px); pointer-events: none;
+    transition: opacity .45s ease, transform .45s ease;
+  }
+  .slide.active { opacity: 1; transform: none; pointer-events: auto; }
+  .slide::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(600px 400px at 85% 10%, rgba(99,102,241,.10), transparent 60%),
+      radial-gradient(500px 380px at 8% 92%, rgba(236,72,153,.05), transparent 60%);
+  }
+  .slide > * { position: relative; z-index: 1; }
+
+  .kicker {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--accent2); margin-bottom: 22px;
+  }
+  .kicker::before { content: ''; width: 26px; height: 2px; background: var(--accent); border-radius: 2px; }
+  h1 { font-size: clamp(40px, 6.2vw, 84px); font-weight: 800; letter-spacing: -.03em; line-height: 1.02; }
+  h2 { font-size: clamp(30px, 4.4vw, 54px); font-weight: 800; letter-spacing: -.025em; line-height: 1.06; margin-bottom: 18px; }
+  .sub { font-size: clamp(15px, 1.5vw, 20px); color: var(--muted); line-height: 1.55; max-width: 720px; }
+  .strong { color: var(--text); font-weight: 600; }
+  .accent-text { color: var(--accent2); font-weight: 700; }
+  .green-text { color: var(--green); }
+  .dim-text { color: var(--dim); }
+
+  .grid { display: grid; gap: 14px; margin-top: 34px; }
+  .g2 { grid-template-columns: repeat(2, 1fr); }
+  .g3 { grid-template-columns: repeat(3, 1fr); }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 20px 22px;
+  }
+  .card .c-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  .card .c-body { font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .card .ic { font-size: 20px; margin-bottom: 10px; display: block; }
+
+  .flow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 30px; }
+  .flow .step {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 20px; font-size: 14px; font-weight: 700;
+  }
+  .flow .step small { display: block; font-weight: 500; font-size: 11px; color: var(--dim); margin-top: 3px; }
+  .flow .arr { color: var(--accent2); font-size: 18px; font-weight: 700; }
+
+  .stat-row { display: flex; gap: 40px; margin-top: 36px; flex-wrap: wrap; }
+  .stat .n { font-size: clamp(30px, 3.6vw, 46px); font-weight: 800; letter-spacing: -.02em; }
+  .stat .l { font-size: 12px; color: var(--dim); text-transform: uppercase; letter-spacing: .12em; font-weight: 600; margin-top: 2px; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 999px;
+    padding: 9px 18px; font-size: 13.5px; font-weight: 600; color: var(--muted);
+  }
+  .pill b { color: var(--text); font-weight: 700; }
+
+  .code {
+    background: #141312; border: 1px solid var(--line); border-radius: 12px;
+    padding: 16px 20px; font-family: 'SF Mono', 'Cascadia Code', Consolas, monospace;
+    font-size: 13px; color: #d4d4d8; line-height: 1.7; margin-top: 24px;
+  }
+  .code .k { color: var(--accent2); }
+  .code .g { color: var(--green); }
+
+  ul.clean { list-style: none; margin-top: 26px; }
+  ul.clean li {
+    font-size: clamp(14px, 1.35vw, 17px); color: var(--muted); line-height: 1.5;
+    padding: 10px 0 10px 30px; position: relative;
+    border-bottom: 1px solid rgba(58,56,54,.5);
+  }
+  ul.clean li::before {
+    content: '✓'; position: absolute; left: 2px; color: var(--green); font-weight: 800;
+  }
+  ul.clean li b { color: var(--text); font-weight: 600; }
+
+  .big-quote { font-size: clamp(24px, 3.4vw, 42px); font-weight: 800; letter-spacing: -.02em; line-height: 1.25; max-width: 900px; }
+  .big-quote em { color: var(--accent2); font-style: normal; }
+
+  /* Nav */
+  .dots { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; z-index: 10; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); cursor: pointer; transition: all .3s; border: none; }
+  .dot.on { background: var(--accent2); width: 26px; border-radius: 5px; }
+  .pagenum { position: fixed; bottom: 24px; right: 34px; font-size: 12px; color: var(--dim); z-index: 10; font-variant-numeric: tabular-nums; }
+  .brand { position: fixed; top: 24px; left: 34px; display: flex; align-items: center; gap: 10px; z-index: 10; }
+  .brand .logo {
+    width: 30px; height: 30px; background: var(--text); color: var(--bg); border-radius: 9px;
+    display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px;
+  }
+  .brand span { font-weight: 700; font-size: 14px; }
+  .brand small { color: var(--dim); font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: .1em; }
+  .hint { position: fixed; bottom: 24px; left: 34px; font-size: 11px; color: var(--dim); z-index: 10; }
+
+  .footnote { font-size: 12px; color: var(--dim); margin-top: 30px; }
+</style>
+</head>
+<body>
+<div class="deck" id="deck">
+
+  <!-- 1. TITLE -->
+  <section class="slide active">
+    <div class="kicker">University Collaboration Network</div>
+    <h1>UniCollab<br><span style="color:var(--dim)">Campus.</span></h1>
+    <p class="sub" style="margin-top:26px">A university-only network where students, professors and clubs<br>
+    <span class="strong">discover each other's abilities and collaborate</span> — projects, research, events.</p>
+    <div class="stat-row">
+      <div class="stat"><div class="n">137</div><div class="l">skills · 8 categories</div></div>
+      <div class="stat"><div class="n">7</div><div class="l">discovery pages</div></div>
+      <div class="stat"><div class="n"><1s</div><div class="l">real-time messages</div></div>
+      <div class="stat"><div class="n">100%</div><div class="l">free-tier deployed</div></div>
+    </div>
+  </section>
+
+  <!-- 2. PROBLEM -->
+  <section class="slide">
+    <div class="kicker">The Problem</div>
+    <h2>Campus talent is invisible.</h2>
+    <p class="sub">Everything worth knowing is scattered across WhatsApp groups, notice boards and word of mouth.</p>
+    <div class="grid g3">
+      <div class="card"><span class="ic">🔍</span><div class="c-title">No discovery</div><div class="c-body">You can't search "who on campus knows React" or "which lab is recruiting".</div></div>
+      <div class="card"><span class="ic">🕳️</span><div class="c-title">No project teams</div><div class="c-body">Hackathon and research teams form by luck — great people never hear about them.</div></div>
+      <div class="card"><span class="ic">📢</span><div class="c-title">No official voice</div><div class="c-body">Council notices drown in chat noise. Deadlines get missed.</div></div>
+    </div>
+  </section>
+
+  <!-- 3. SOLUTION -->
+  <section class="slide">
+    <div class="kicker">The Solution</div>
+    <div class="big-quote">One platform that ties<br><em>People → Skills → Projects → Collaboration</em><br>together.</div>
+    <p class="sub" style="margin-top:26px">Not an ERP. Not a social-media clone. Not payments.<br>
+    <span class="strong">One question drives every screen:</span> who should I know about, which project should I join, and what is happening on campus right now?</p>
+  </section>
+
+  <!-- 4. WHAT IT DOES -->
+  <section class="slide">
+    <div class="kicker">What It Does</div>
+    <h2>Every page answers "why am I here?"</h2>
+    <div class="grid g3">
+      <div class="card"><span class="ic">🧭</span><div class="c-title">Explore</div><div class="c-body">Personal dashboard — live stats, featured projects, people to know, upcoming events.</div></div>
+      <div class="card"><span class="ic">👥</span><div class="c-title">People & Labs</div><div class="c-body">Everyone on campus — searchable by skill, department, role. Connect + message.</div></div>
+      <div class="card"><span class="ic">🗂️</span><div class="c-title">Projects</div><div class="c-body">Teams recruiting. Apply with a pitch; the owner accepts → <b style="color:var(--text)">real membership</b>.</div></div>
+      <div class="card"><span class="ic">🚀</span><div class="c-title">Startups</div><div class="c-body">The campus hatchery — ongoing, incubated, graduated ventures. Admin-curated.</div></div>
+      <div class="card"><span class="ic">🤝</span><div class="c-title">Communities</div><div class="c-body">Clubs with a real leadership hierarchy — President, VP, Heads — Discord-like rank rules.</div></div>
+      <div class="card"><span class="ic">🎉</span><div class="c-title">Events + Notices</div><div class="c-body">Hackathons, workshops, RSVPs; official council notices — persisted, admin-published.</div></div>
+    </div>
+  </section>
+
+  <!-- 5. ONBOARDING -->
+  <section class="slide">
+    <div class="kicker">First Impressions</div>
+    <h2>No user enters with an empty profile.</h2>
+    <ul class="clean">
+      <li><b>Password-free option</b> — sign up with a one-time email code (hashed, 10-min expiry, single-use)</li>
+      <li><b>2-step onboarding</b> — profile basics (adapts to the role) + skills</li>
+      <li><b>137-skill taxonomy</b> — searchable multi-select, grouped in 8 categories, stored in the database</li>
+      <li><b>Persists server-side</b> — refreshing never re-asks; skip finishes later</li>
+    </ul>
+  </section>
+
+  <!-- 6. ARCHITECTURE -->
+  <section class="slide">
+    <div class="kicker">Architecture</div>
+    <h2>Every click travels a real path.</h2>
+    <div class="flow">
+      <div class="step">UI<small>React 19 + Vite</small></div>
+      <div class="arr">→</div>
+      <div class="step">API<small>Express + TypeScript</small></div>
+      <div class="arr">→</div>
+      <div class="step">Authorize<small>JWT + role checks</small></div>
+      <div class="arr">→</div>
+      <div class="step">Business rules<small>Service layer</small></div>
+      <div class="arr">→</div>
+      <div class="step">DB<small>PostgreSQL + Prisma</small></div>
+      <div class="arr">→</div>
+      <div class="step" style="border-color:var(--accent)">UI updates<small>SSE + 4s poll</small></div>
+    </div>
+    <p class="footnote">The database is the single source of truth. Nothing is faked in the browser — every important action is authorized and persisted server-side.</p>
+  </section>
+
+  <!-- 7. SECURITY -->
+  <section class="slide">
+    <div class="kicker">Security</div>
+    <h2>Authorization lives on the server.</h2>
+    <div class="grid g2">
+      <div class="card"><span class="ic">🔐</span><div class="c-title">Passwords</div><div class="c-body">bcrypt-hashed — one-way, salted. The hash never appears in any API response (regression-tested).</div></div>
+      <div class="card"><span class="ic">🎫</span><div class="c-title">Sessions</div><div class="c-body">15-min JWT access token + 7-day refresh in an httpOnly cookie — JavaScript can't steal it.</div></div>
+      <div class="card"><span class="ic">🛡️</span><div class="c-title">Server-side checks</div><div class="c-body">Owner-only edit/delete, recipient-only accept, connected-only messaging, admin-only panel — all verified against the database.</div></div>
+      <div class="card"><span class="ic">🕵️</span><div class="c-title">Privacy</div><div class="c-body">Per-field visibility (public / university / connections / private) — private data never leaves the DB for unauthorized viewers.</div></div>
+    </div>
+  </section>
+
+  <!-- 8. TRUST MECHANICS -->
+  <section class="slide">
+    <div class="kicker">Anti-Spam + Trust</div>
+    <h2>Professional-networking rules, enforced.</h2>
+    <div class="grid g3">
+      <div class="card"><span class="ic">3️⃣</span><div class="c-title">Rate limit</div><div class="c-body">Max 3 connection requests per week to the same person — server-side; cancel-and-resend counts. 4th attempt → 429.</div></div>
+      <div class="card"><span class="ic">🔗</span><div class="c-title">Connect to message</div><div class="c-body">No connection → no direct messaging. Enforced with 403s, not hidden buttons.</div></div>
+      <div class="card"><span class="ic">👑</span><div class="c-title">Rank hierarchy</div><div class="c-body">Nobody removes, edits or demotes someone at-or-above their own rank. Presidents transfer, not abandon.</div></div>
+    </div>
+  </section>
+
+  <!-- 9. DEPLOYED -->
+  <section class="slide">
+    <div class="kicker">Deployment</div>
+    <h2>Live on free tiers.</h2>
+    <div class="grid g3">
+      <div class="card"><span class="ic">🌐</span><div class="c-title">Vercel — Website</div><div class="c-body">Static hosting, always-on. university-collab-network-web.vercel.app</div></div>
+      <div class="card"><span class="ic">⚙️</span><div class="c-title">Render — API</div><div class="c-body">Node service with auto schema deploys. Sleeps after 15 min idle (free tier) — ~40s wake.</div></div>
+      <div class="card"><span class="ic">🐘</span><div class="c-title">Neon — Database</div><div class="c-body">Serverless PostgreSQL, always-on, 0.5 GB free. Real emails via Resend.</div></div>
+    </div>
+    <div class="footnote">One platform, one API, zero cost. Push to GitHub → all three redeploy.</p>
+  </section>
+
+  <!-- 10. LIVE DEMO -->
+  <section class="slide">
+    <div class="kicker">Live Demo</div>
+    <h2>What you're about to see.</h2>
+    <ul class="clean">
+      <li><b>Sign up password-free</b> — a one-time code arrives by real email</li>
+      <li><b>Onboarding</b> — pick skills from the taxonomy; the profile fills in</li>
+      <li><b>Apply to a project</b> — the owner accepts → real membership, instantly</li>
+      <li><b>Connect + message</b> — real-time chat, under a second</li>
+      <li><b>Admin panel</b> — publish a council notice to the whole campus</li>
+      <li><b>Dark mode</b> — one click in the profile menu</li>
+    </ul>
+  </section>
+
+  <!-- 11. CLOSE -->
+  <section class="slide">
+    <div class="kicker">Thank You</div>
+    <div class="big-quote">People → Skills → Projects → Collaboration.<br><em>All in one verified network.</em></div>
+    <div class="stat-row" style="margin-top:44px">
+      <div class="stat"><div class="n" style="color:var(--accent2)">48</div><div class="l">database models</div></div>
+      <div class="stat"><div class="n" style="color:var(--accent2)">12</div><div class="l">test suites passing</div></div>
+      <div class="stat"><div class="n" style="color:var(--accent2)">31</div><div class="l">API route groups</div></div>
+      <div class="stat"><div class="n" style="color:var(--accent2)">₹0</div><div class="l">infrastructure cost</div></div>
+    </div>
+    <p class="sub" style="margin-top:36px">Questions?</p>
+  </section>
+
+</div>
+
+<div class="brand"><div class="logo">U</div><div><span>UniCollab</span> <small>Campus</small></div></div>
+<div class="dots" id="dots"></div>
+<div class="pagenum" id="pagenum"></div>
+<div class="hint">← → arrow keys · click to advance</div>
+
+<script>
+  const slides = [...document.querySelectorAll('.slide')];
+  const dots = document.getElementById('dots');
+  const pagenum = document.getElementById('pagenum');
+  let cur = 0;
+
+  slides.forEach((_, i) => {
+    const b = document.createElement('button');
+    b.className = 'dot' + (i === 0 ? ' on' : '');
+    b.onclick = (e) => { e.stopPropagation(); go(i); };
+    dots.appendChild(b);
+  });
+
+  function go(i) {
+    if (i < 0 || i >= slides.length) return;
+    slides[cur].classList.remove('active');
+    dots.children[cur].classList.remove('on');
+    cur = i;
+    slides[cur].classList.add('active');
+    dots.children[cur].classList.add('on');
+    pagenum.textContent = (cur + 1) + ' / ' + slides.length;
+  }
+
+  addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') go(cur + 1);
+    if (e.key === 'ArrowLeft' || e.key === 'PageUp') go(cur - 1);
+    if (e.key === 'Home') go(0);
+    if (e.key === 'End') go(slides.length - 1);
+  });
+  addEventListener('click', () => go(cur + 1));
+  pagenum.textContent = '1 / ' + slides.length;
+</script>
+</body>
+</html>
