@@ -36,12 +36,24 @@ export const LoginPage: React.FC = () => {
     setNotice(null);
     if (isSignup) {
       const res = await signup(email.trim(), password, fullName.trim(), requestedRole);
-      setNotice(res.message);
+      setNotice(res.ok ? undefined : describeError({ message: res.message }));
       if (res.ok) setIsSignup(false);
     } else {
       await login(email.trim(), password);
     }
     setBusy(false);
+  };
+
+  /** Field-aware error message — the API's validation errors carry the
+   * failing fields; "Invalid request payload" alone tells the user nothing. */
+  const describeError = (err: unknown): string => {
+    if (!(err && typeof err === 'object')) return 'Something went wrong.';
+    const e = err as { message?: string; fields?: Record<string, string> };
+    if (e.fields && Object.keys(e.fields).length > 0) {
+      const parts = Object.entries(e.fields).map(([k, v]) => `${k}: ${v}`);
+      return parts.join(' · ');
+    }
+    return e.message ?? 'Something went wrong.';
   };
 
   /** Send the one-time code (signup OR login — the API picks the purpose). */
@@ -70,11 +82,7 @@ export const LoginPage: React.FC = () => {
           : 'A 6-digit code was sent to your email — it expires in 10 minutes.',
       );
     } catch (err) {
-      setOtpError(
-        err && typeof err === 'object' && 'message' in err
-          ? (err as Error).message
-          : 'Could not send the code.',
-      );
+      setOtpError(describeError(err));
     } finally {
       setBusy(false);
     }
