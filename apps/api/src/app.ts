@@ -43,6 +43,10 @@ export function createApp(): Express {
       origin: (origin, callback) => {
         if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
           callback(null, true);
+        } else if (origin.endsWith(".vercel.app")) {
+          // Vercel preview + production subdomains — every deployment URL
+          // (preview hashes differ per deploy; the exact list can't cover them)
+          callback(null, true);
         } else {
           callback(new Error(`Origin ${origin} not allowed by CORS`));
         }
