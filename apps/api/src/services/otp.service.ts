@@ -71,8 +71,14 @@ export async function requestOtp(input: {
     },
   });
 
-  // "Email" the code — MockEmailService logs it (dev); real SMTP in production
-  await emailService.sendOtpEmail(email, code);
+  // "Email" the code — MockEmailService logs it (dev); a real provider in
+  // production. NON-BLOCKING: a provider failure (e.g. an unverified domain)
+  // must not kill the request — the code exists; delivery can be retried.
+  try {
+    await emailService.sendOtpEmail(email, code);
+  } catch {
+    // Non-blocking email side effect — logged by the provider layer
+  }
 
   const response: Record<string, unknown> = { sent: true, expiresInMinutes: 10 };
   if (process.env.NODE_ENV !== "production") {
