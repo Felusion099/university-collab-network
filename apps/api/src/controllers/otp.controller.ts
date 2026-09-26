@@ -17,7 +17,14 @@ export async function requestOtp(req: Request, res: Response, next: NextFunction
 export async function verifyOtp(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const input = OtpVerifySchema.parse(req.body);
-    const { accessToken, refreshToken, refreshTokenMaxAgeMs, user } = await otpService.verifyOtp(input);
+    const result = await otpService.verifyOtp(input);
+    if ("registrationToken" in result) {
+      // The signup OTP verified — NO account yet; the registration token
+      // authorizes the account-details step
+      res.status(200).json(result);
+      return;
+    }
+    const { accessToken, refreshToken, refreshTokenMaxAgeMs, user } = result;
     setRefreshCookie(res, refreshToken, refreshTokenMaxAgeMs);
     res.status(200).json({ accessToken, user });
   } catch (err: unknown) {

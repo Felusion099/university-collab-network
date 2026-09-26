@@ -1,8 +1,9 @@
 import bcrypt from "bcrypt";
+import { logger } from "../utils/logger.js";
 import { prisma } from "../repositories/prisma.js";
 import { authService } from "./auth.service.js";
 import { emailService } from "./email.service.js";
-import { NotFoundError, GoneError, BadRequestError, UnauthorizedError } from "../utils/errors.js";
+import { NotFoundError, GoneError, BadRequestError, UnauthorizedError, ConflictError } from "../utils/errors.js";
 
 /**
  * OTP (one-time passcode) — passwordless signup/login.
@@ -88,8 +89,14 @@ export async function requestOtp(input: {
   // must not kill the request — the code exists; delivery can be retried.
   try {
     await emailService.sendOtpEmail(email, code);
-  } catch {
-    // Non-blocking email side effect — logged by the provider layer
+  } catch (err) {
+    // Non-blocking email side effect — LOG the delivery failure loudly
+    // (e.g. the provider's free-tier restriction: unverified domains can
+    // only receive at the account owner's address)
+    logger.warn(
+      { email, error: (err as Error)?.message?.slice(0, 200) },
+      "[otp] email delivery FAILED — the code exists but was not delivered",
+    );
   }
 
   const response: Record<string, unknown> = { sent: true, expiresInMinutes: 10 };
@@ -142,22 +149,22 @@ export async function verifyOtp(input: { email: string; code: string }) {
     throw new BadRequestError("Use the reset-password form with this code");
   }
 
-  // Signup-purpose → create the account from the pending profile data
+  // Signup-purpose → NO account is created yet! The code verified email
+  // ownership; a short-lived single-use REGISTRATION TOKEN is issued. The
+  // user then enters their password/details and the account is created
+  // WITH that token (server-enforced — the signup API cannot be called
+  // without it, so the OTP step cannot be bypassed).
   if (row.purpose === "signup") {
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
-      // A race (the user already exists) — log them in instead
-        // A race: the user already exists — treat the OTP as a login
-      const tokens = await authService.loginWithActiveUser(existing);
-      return tokens;
+      throw new ConflictError("An account with this email already exists — sign in instead");
     }
-    const created = await authService.createFromOtp({
-      email,
-      fullName: row.fullName ?? email.split("@")[0]!,
-      requestedRole: (row.requestedRole ?? "student") as never,
-    });
-    // The account is created ACTIVE — email ownership proven by the code
-    return authService.loginWithActiveUser(created);
+    const registrationToken = authService.createRegistrationToken(email, row.id);
+    return {
+      verified: true,
+      registrationToken,
+      expiresInMinutes: 15,
+    };
   }
 
   // Login-purpose → log the existing user in

@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { randomBytes, createHash } from "node:crypto";
 import type { UserRole } from "@app/shared-types";
+import { prisma } from "../repositories/prisma.js";
 import { userRepository } from "../repositories/user.repository.js";
 import { authRepository } from "../repositories/auth.repository.js";
 import { emailService } from "./email.service.js";
@@ -341,17 +342,8 @@ export async function login(input: LoginRequest): Promise<LoginResult> {
     throw new AppError("This account has been suspended", 403, "ACCOUNT_SUSPENDED");
   }
 
-  // Verification gates the login: a password signup creates the account as
-  // pending_verification — the user must click the emailed verification link
-  // (or sign in via the OTP path, which proves email ownership itself)
-  // before they are allowed in.
-  if (user.status === "pending_verification") {
-    throw new AppError(
-      "Verify your email first — click the verification link we sent you, or sign in with a one-time code",
-      403,
-      "EMAIL_NOT_VERIFIED",
-    );
-  }
+  // Login = email + password only. Accounts are created via the OTP-first
+  // flow (verified by construction) — no OTP is required on login.
 
   const accessToken = signAccessToken(user);
   const refreshToken = signRefreshToken(user.id);
@@ -477,6 +469,93 @@ export function createPasswordResetToken(userId: string, passwordHash: string): 
   });
 }
 
+
+/** Short-lived single-use registration token — issued ONLY after the signup
+ * OTP verified email ownership. The signup API requires it (server-side
+ * enforcement: the OTP step cannot be bypassed by direct API calls). */
+export function createRegistrationToken(email: string, otpRowId: string): string {
+  const payload = {
+    sub: email.toLowerCase(),
+    purpose: "registration" as const,
+    nonce: otpRowId,
+  };
+  return jwt.sign(payload, getAccessSecret(), { expiresIn: "15m" } as jwt.SignOptions);
+}
+
+function verifyRegistrationToken(token: string): { sub: string; nonce: string } {
+  let decoded: { sub: string; purpose: string; nonce: string };
+  try {
+    decoded = jwt.verify(token, getAccessSecret()) as typeof decoded;
+  } catch {
+    throw new AppError("Registration session expired — verify your email again", 401, "BAD_REQUEST");
+  }
+  if (decoded.purpose !== "registration") {
+    throw new AppError("Invalid registration token", 403, "FORBIDDEN");
+  }
+  return { sub: decoded.sub, nonce: decoded.nonce };
+}
+
+
+export interface RegistrationDetails {
+  email: string;
+  password: string;
+  fullName: string;
+  requestedRole: UserRole;
+  registrationToken: string;
+}
+
+/** Create the account AFTER the OTP verified (registration token required —
+ * server-enforced). The account is ACTIVE immediately (email ownership was
+ * proven by the OTP) with the USER'S chosen password, securely hashed. */
+export async function signupWithRegistrationToken(input: RegistrationDetails) {
+  const { sub, nonce } = verifyRegistrationToken(input.registrationToken);
+  const email = input.email.toLowerCase().trim();
+  if (sub !== email) {
+    throw new AppError("Registration token does not match this email", 403, "FORBIDDEN");
+  }
+
+  // Single-use: the OTP row that issued the token must not have been used
+  const otpRow = await prisma.otpCode.findUnique({ where: { id: nonce } });
+  if (!otpRow || otpRow.registrationCompleted) {
+    throw new AppError("Registration token was already used — start again", 409, "CONFLICT");
+  }
+  if (otpRow.email !== email) {
+    throw new AppError("Registration token does not match this email", 403, "FORBIDDEN");
+  }
+
+  const existing = await userRepository.findByEmail(email);
+  if (existing) throw new AppError("An account with this email already exists", 409, "EMAIL_TAKEN");
+
+  const passwordHash = await hashPassword(input.password);
+  const username = await generateUniqueUsername(email);
+  const domain = email.split("@")[1]?.toLowerCase();
+
+  const user = await userRepository.create({
+    email,
+    username,
+    passwordHash,
+    requestedRole: input.requestedRole as RequestedRole,
+    status: "active",
+    universityDomain: domain,
+    ...buildRoleProfileCreateData(input.requestedRole as RequestedRole, input.fullName),
+    privacySettings: { create: {} },
+  });
+
+  // Mark the token used (replay-proof)
+  await prisma.otpCode.update({ where: { id: nonce }, data: { registrationCompleted: true } });
+
+  const accessToken = signAccessToken(user);
+  const refreshToken = signRefreshToken(user.id);
+  const refreshTokenMaxAgeMs = getRefreshTtlMs();
+  await authRepository.createRefreshToken({
+    user: { connect: { id: user.id } },
+    tokenHash: hashOpaqueToken(refreshToken),
+    expiresAt: new Date(Date.now() + refreshTokenMaxAgeMs),
+  });
+
+  return { accessToken, refreshToken, refreshTokenMaxAgeMs, user: toAuthenticatedUser(user) };
+}
+
 export const authService = {
   signup,
   verifyEmail,
@@ -489,6 +568,8 @@ export const authService = {
   createPasswordResetToken,
   createFromOtp,
   loginWithActiveUser,
+  createRegistrationToken,
+  signupWithRegistrationToken,
 };
 
 export type { RequestedRole };

@@ -32,8 +32,11 @@ function clearRefreshCookie(res: Response): void {
 
 export async function signup(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const result = await authService.signup(req.body as SignupRequest);
-    res.status(201).json(result);
+    // The account is created ONLY with a registration token (issued after
+    // the signup OTP verified email ownership) — server-enforced
+    const result = await authService.signupWithRegistrationToken(req.body as never);
+    setRefreshCookie(res, result.refreshToken, result.refreshTokenMaxAgeMs);
+    res.status(201).json({ accessToken: result.accessToken, user: result.user });
   } catch (err: unknown) {
     next(err);
   }

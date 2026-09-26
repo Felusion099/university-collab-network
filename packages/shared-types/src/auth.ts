@@ -32,6 +32,10 @@ export const SignupRequestSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters"),
   fullName: z.string().min(1, "Full name is required"),
   requestedRole: RequestedRoleEnum,
+  // REQUIRED — issued only after the signup OTP verified email ownership.
+  // Server-side enforcement: the OTP step cannot be bypassed by calling
+  // the registration API directly.
+  registrationToken: z.string().min(1, "Verify your email with a one-time code first"),
 });
 export type SignupRequest = z.infer<typeof SignupRequestSchema>;
 
@@ -116,6 +120,14 @@ export const OtpRequestSchema = z.object({
   requestedRole: RequestedRoleEnum.optional(),
 });
 export type OtpRequest = z.infer<typeof OtpRequestSchema>;
+
+export const OtpVerifyResponseSchema = z.object({
+  verified: z.boolean(),
+  // Only for the signup purpose — authorizes the account-details step
+  registrationToken: z.string().optional(),
+  expiresInMinutes: z.number().optional(),
+});
+export type OtpVerifyResponse = z.infer<typeof OtpVerifyResponseSchema>;
 
 export const OtpRequestResponseSchema = z.object({
   sent: z.literal(true),

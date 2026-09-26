@@ -49,7 +49,9 @@ describe("Phase 4 - Live DB Auth Lifecycle & Token Security", () => {
   let refreshCookie: string;
   let accessToken: string;
 
-  test("1. POST /api/v1/auth/signup creates a pending user with username and profile", async () => {
+  test("1. Direct signup without OTP verification is BLOCKED (422)", async () => {
+    // Server-side enforcement: the OTP step cannot be bypassed by calling
+    // the registration API directly
     const res = await fetch(`${baseUrl}/api/v1/auth/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -60,59 +62,85 @@ describe("Phase 4 - Live DB Auth Lifecycle & Token Security", () => {
         requestedRole: "student",
       }),
     });
+    assert.equal(res.status, 422);
 
-    assert.equal(res.status, 201);
-    const json = (await res.json()) as { userId: string; status: string };
-    assert.ok(json.userId);
-    assert.equal(json.status, "pending_verification");
-    userId = json.userId;
-
-    const dbUser = await prisma.user.findUnique({
-      where: { id: userId },
-      include: { studentProfile: true, privacySettings: true },
-    });
-    assert.ok(dbUser);
-    assert.equal(dbUser.email, testEmail);
-    assert.ok(dbUser.username);
-    assert.equal(dbUser.requestedRole, "student");
-    assert.equal(dbUser.status, "pending_verification");
-    assert.equal(dbUser.studentProfile?.fullName, "Auth Test User");
-    assert.ok(dbUser.privacySettings);
+    // No user was created
+    const dbUser = await prisma.user.findUnique({ where: { email: testEmail } });
+    assert.equal(dbUser, null);
   });
 
-  test("2. Duplicate signup returns 409 EMAIL_TAKEN", async () => {
+  test("2. OTP-first signup: request → verify → registration token", async () => {
+    // 2a. Request the OTP
+    const reqRes = await fetch(`${baseUrl}/api/v1/auth/otp/request`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: testEmail,
+        purpose: "signup",
+        fullName: "Auth Test User",
+        requestedRole: "student",
+      }),
+    });
+    assert.equal(reqRes.status, 200);
+    const reqJson = (await reqRes.json()) as { sent: boolean; devCode?: string };
+    assert.equal(reqJson.sent, true);
+    assert.ok(reqJson.devCode, "the dev code is returned outside production");
+
+    // 2b. A WRONG code → rejected, no registration token
+    const wrongRes = await fetch(`${baseUrl}/api/v1/auth/otp/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: testEmail, code: "000000" }),
+    });
+    assert.equal(wrongRes.status, 401);
+
+    // 2c. The CORRECT code → verified + a registration token (NO account yet!)
+    const verifyRes = await fetch(`${baseUrl}/api/v1/auth/otp/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: testEmail, code: reqJson.devCode! }),
+    });
+    assert.equal(verifyRes.status, 200);
+    const verifyJson = (await verifyRes.json()) as { verified: boolean; registrationToken: string };
+    assert.equal(verifyJson.verified, true);
+    assert.ok(verifyJson.registrationToken);
+    registrationToken = verifyJson.registrationToken;
+
+    // No user exists yet (the account is created only AFTER the details step)
+    const noUser = await prisma.user.findUnique({ where: { email: testEmail } });
+    assert.equal(noUser, null);
+  });
+
+  test("3. Signup WITH the registration token creates an ACTIVE account", async () => {
     const res = await fetch(`${baseUrl}/api/v1/auth/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email: testEmail,
         password: testPassword,
-        fullName: "Another Person",
+        fullName: "Auth Test User",
         requestedRole: "student",
+        registrationToken,
       }),
     });
 
-    assert.equal(res.status, 409);
-    const json = (await res.json()) as { error: { code: string } };
-    assert.equal(json.error.code, "EMAIL_TAKEN");
-  });
+    assert.equal(res.status, 201);
+    const json = (await res.json()) as { accessToken: string; user: { status: string } };
+    assert.ok(json.accessToken);
+    assert.equal(json.user.status, "active");
+    userId = (json as unknown as { user: { id: string } }).user.id;
 
-  test("3. POST /api/v1/auth/verify-email activates user and marks isUniversityVerified", async () => {
-    const verifyToken = authService.createEmailVerificationToken(userId);
-    const res = await fetch(`${baseUrl}/api/v1/auth/verify-email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: verifyToken }),
+    const dbUser = await prisma.user.findUnique({
+      where: { email: testEmail },
+      include: { studentProfile: true, privacySettings: true },
     });
-
-    assert.equal(res.status, 200);
-    const json = (await res.json()) as { verified: boolean; isUniversityVerified: boolean };
-    assert.equal(json.verified, true);
-    assert.equal(json.isUniversityVerified, true);
-
-    const dbUser = await prisma.user.findUnique({ where: { id: userId } });
-    assert.equal(dbUser?.status, "active");
-    assert.equal(dbUser?.isUniversityVerified, true);
+    assert.ok(dbUser);
+    assert.equal(dbUser.email, testEmail);
+    assert.ok(dbUser.username);
+    assert.equal(dbUser.requestedRole, "student");
+    assert.equal(dbUser.status, "active");
+    assert.equal(dbUser.studentProfile?.fullName, "Auth Test User");
+    assert.ok(dbUser.privacySettings);
   });
 
   test("4. POST /api/v1/auth/login with wrong password returns 401 INVALID_CREDENTIALS", async () => {

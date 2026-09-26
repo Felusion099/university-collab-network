@@ -3,6 +3,7 @@ import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import bcrypt from "bcrypt";
 import { createApp } from "../src/app.js";
 import { prisma } from "../src/repositories/prisma.js";
 import { authService } from "../src/services/auth.service.js";
@@ -82,26 +83,23 @@ describe("Phase 5 - Complete API Endpoints Integration Test Suite", () => {
     const address = server.address() as AddressInfo;
     baseUrl = `http://127.0.0.1:${address.port}`;
 
-    // Create User A (Student)
+    // Create User A (Student) — a FIXTURE created directly via prisma (the
+    // signup API now requires the OTP-first registration token; the auth
+    // flows are tested in auth-lifecycle.test.ts)
     const emailA = `alice_p5_${Date.now()}@university.edu`;
-    const resA = await fetch(`${baseUrl}/api/v1/auth/signup`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const userA = await prisma.user.create({
+      data: {
         email: emailA,
-        password: "Password123!",
-        fullName: "Alice Student",
+        username: `alice_p5_${Date.now()}`,
+        passwordHash: bcrypt.hashSync("Password123!", 10),
         requestedRole: "student",
-      }),
+        status: "active",
+        isUniversityVerified: true,
+        studentProfile: { create: { fullName: "Alice Student" } },
+        privacySettings: { create: {} },
+      },
     });
-    const jsonA = (await resA.json()) as { userId: string };
-    userAId = jsonA.userId;
-    const vTokenA = authService.createEmailVerificationToken(userAId);
-    await fetch(`${baseUrl}/api/v1/auth/verify-email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: vTokenA }),
-    });
+    userAId = userA.id;
     const loginA = await fetch(`${baseUrl}/api/v1/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -109,8 +107,7 @@ describe("Phase 5 - Complete API Endpoints Integration Test Suite", () => {
     });
     const loginAJson = (await loginA.json()) as { accessToken: string };
     userAToken = loginAJson.accessToken;
-    const dbA = await prisma.user.findUniqueOrThrow({ where: { id: userAId } });
-    userAUsername = dbA.username;
+    userAUsername = userA.username;
 
     // Set Alice's CGPA and Privacy Settings
     await prisma.studentProfile.update({
@@ -132,24 +129,19 @@ describe("Phase 5 - Complete API Endpoints Integration Test Suite", () => {
 
     // Create User B (Student)
     const emailB = `bob_p5_${Date.now()}@university.edu`;
-    const resB = await fetch(`${baseUrl}/api/v1/auth/signup`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const userB = await prisma.user.create({
+      data: {
         email: emailB,
-        password: "Password123!",
-        fullName: "Bob Student",
+        username: `bob_p5_${Date.now()}`,
+        passwordHash: bcrypt.hashSync("Password123!", 10),
         requestedRole: "student",
-      }),
+        status: "active",
+        isUniversityVerified: true,
+        studentProfile: { create: { fullName: "Bob Student" } },
+        privacySettings: { create: {} },
+      },
     });
-    const jsonB = (await resB.json()) as { userId: string };
-    userBId = jsonB.userId;
-    const vTokenB = authService.createEmailVerificationToken(userBId);
-    await fetch(`${baseUrl}/api/v1/auth/verify-email`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: vTokenB }),
-    });
+    userBId = userB.id;
     const loginB = await fetch(`${baseUrl}/api/v1/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -157,37 +149,27 @@ describe("Phase 5 - Complete API Endpoints Integration Test Suite", () => {
     });
     const loginBJson = (await loginB.json()) as { accessToken: string };
     userBToken = loginBJson.accessToken;
-    // Create Admin User
+    // Create Admin User — via prisma (the fixture) + an approved verification
     const adminEmail = `admin_p5_${Date.now()}@university.edu`;
-    const resAdmin = await fetch(`${baseUrl}/api/v1/auth/signup`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: adminEmail,
-        password: "AdminPassword123!",
-        fullName: "Admin User",
-        requestedRole: "student",
-      }),
-    });
-    const adminJson = (await resAdmin.json()) as { userId: string };
-    adminId = adminJson.userId;
-    // Set admin role directly in DB
-    await prisma.user.update({
-      where: { id: adminId },
-      data: { requestedRole: "admin", status: "active", isUniversityVerified: true },
-    });
-
-    await prisma.verification.create({
+    const adminUser = await prisma.user.create({
       data: {
-        userId: adminId,
-        roleClaimed: "admin",
-        status: "approved",
+        email: adminEmail,
+        username: `admin_p5_${Date.now()}`,
+        passwordHash: bcrypt.hashSync("Password123!", 10),
+        requestedRole: "admin",
+        status: "active",
+        isUniversityVerified: true,
+        privacySettings: { create: {} },
       },
+    });
+    adminId = adminUser.id;
+    await prisma.verification.create({
+      data: { userId: adminId, roleClaimed: "admin", status: "approved" },
     });
     const loginAdmin = await fetch(`${baseUrl}/api/v1/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: adminEmail, password: "AdminPassword123!" }),
+      body: JSON.stringify({ email: adminEmail, password: "Password123!" }),
     });
     const loginAdminJson = (await loginAdmin.json()) as { accessToken: string };
     adminToken = loginAdminJson.accessToken;

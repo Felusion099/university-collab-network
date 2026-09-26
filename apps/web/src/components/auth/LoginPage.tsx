@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { apiFetch } from '../../services/api/client';
 import { setAccessToken } from '../../services/api/session';
 
-type Flow = 'password' | 'otp-code';
+type Flow = 'password' | 'otp-code' | 'details';
 type CodePurpose = 'verify' | 'login' | 'reset';
 
 export const LoginPage: React.FC = () => {
@@ -31,6 +31,7 @@ export const LoginPage: React.FC = () => {
   const [devCode, setDevCode] = useState<string | null>(null);
   const [otpError, setOtpError] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
+  const [registrationToken, setRegistrationToken] = useState<string | null>(null);
 
   const inputCls =
     'w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-zinc-900/10 focus:border-zinc-900 transition';
@@ -41,6 +42,13 @@ export const LoginPage: React.FC = () => {
     setBusy(true);
     setNotice(null);
     if (isSignup) {
+      // The spec's order: the email → the OTP → verify → THEN the
+      // password/details step → create. The OTP starts here.
+      setBusy(false);
+      await sendCode('signup');
+      return;
+    }
+    if (false) {
       // The account is created pending_verification → an OTP code is emailed
       // → the VERIFY step appears right here: enter the code, only then in.
       const res = await signup(email.trim(), password, fullName.trim(), requestedRole);
@@ -145,15 +153,72 @@ export const LoginPage: React.FC = () => {
     await sendCode('login');
   };
 
-  /** Verify the 6-digit code → the account is created (signup) or logged in
-   * — the tokens come straight from the verify response. */
+  /** Verify the 6-digit code:
+   * signup purpose → NO account yet — the registration token comes back →
+   *   the DETAILS step (the password + full name) → the account is created.
+   * login purpose → signed in (the tokens from the verify response). */
   const handleVerifyCode = async (e: React.FormEvent) => {
     e.preventDefault();
     if (busy || code.trim().length !== 6) return;
     setBusy(true);
     setOtpError(null);
-    const ok = await otpLogin(email.trim(), code.trim());
-    if (!ok) setBusy(false);
+    try {
+      const res = await apiFetch<{ registrationToken?: string }>('/auth/otp/verify', {
+        method: 'POST',
+        body: { email: email.trim(), code: code.trim() },
+        skipAuthRetry: true,
+      });
+      if (res.registrationToken) {
+        // OTP verified — now collect the password/details
+        setRegistrationToken(res.registrationToken);
+        setFlow('details');
+        setBusy(false);
+        return;
+      }
+      // The login purpose — the tokens are in the cookie/session; sign in
+      const ok = await otpLogin(email.trim(), code.trim());
+      if (!ok) setBusy(false);
+    } catch (err) {
+      setOtpError(describeError(err));
+      setBusy(false);
+    }
+  };
+
+  /** The account-details step: create the account WITH the registration
+   * token (server-enforced — it exists only because the OTP verified). */
+  const handleDetailsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy || !registrationToken) return;
+    setBusy(true);
+    setOtpError(null);
+    try {
+      const res = await apiFetch<{ accessToken: string }>('/auth/signup', {
+        method: 'POST',
+        body: {
+          email: email.trim(),
+          password: password,
+          fullName: fullName.trim(),
+          requestedRole,
+          registrationToken,
+        },
+        skipAuthRetry: true,
+      });
+      setAccessToken(res.accessToken);
+      // The session is set — restore the user + enter the app (the
+      // onboarding gate handles the rest)
+      const me = await apiFetch<Record<string, unknown>>('/users/me').catch(() => null);
+      if (me) {
+        window.location.reload();
+      } else {
+        setOtpError('Account created — please sign in.');
+        setFlow('password');
+        setIsSignup(false);
+        setBusy(false);
+      }
+    } catch (err) {
+      setOtpError(describeError(err));
+      setBusy(false);
+    }
   };
 
   return (
@@ -254,6 +319,11 @@ export const LoginPage: React.FC = () => {
                         Dev mode — emails aren't actually sent. Your code: <strong>{devCode}</strong>
                       </div>
                     )}
+                    {!devCode && (
+                      <p className="text-[11px] text-zinc-400">
+                        No email yet? Check spam, or note: while the sender domain is unverified, codes deliver only to the platform owner's email.
+                      </p>
+                    )}
                     {(otpError || notice) && (
                       <div className={`rounded-lg px-3.5 py-2.5 text-xs leading-relaxed ${
                         otpError
@@ -301,6 +371,89 @@ export const LoginPage: React.FC = () => {
                     </button>
                   </div>
                 </>
+              ) : flow === 'details' ? (
+                /* ============ ACCOUNT DETAILS (after the OTP verified) ============ */
+                <>
+                  <h2 className="text-xl font-bold tracking-tight mb-1">Email verified ✓</h2>
+                  <p className="text-sm text-zinc-500 mb-5">
+                    {email} is confirmed. Now set your password and details to create the account.
+                  </p>
+
+                  <form onSubmit={handleDetailsSubmit} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-700 mb-1.5">Full name</label>
+                      <div className="relative">
+                        <UserIcon className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          required
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          placeholder="Ada Sharma"
+                          className={`${inputCls} pl-9`}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-700 mb-1.5">Password</label>
+                      <div className="relative">
+                        <Lock className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="password"
+                          required
+                          minLength={8}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="At least 8 characters"
+                          className={`${inputCls} pl-9`}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-700 mb-1.5">I am a…</label>
+                      <select
+                        value={requestedRole}
+                        onChange={(e) => setRequestedRole(e.target.value)}
+                        className={inputCls}
+                      >
+                        <option value="student">Student</option>
+                        <option value="professor">Professor</option>
+                        <option value="researcher">Researcher</option>
+                        <option value="professional">Professional</option>
+                      </select>
+                    </div>
+
+                    {otpError && (
+                      <div className="rounded-lg px-3.5 py-2.5 text-xs bg-red-50 text-red-700 border border-red-200">
+                        {otpError}
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={busy}
+                      className="w-full flex items-center justify-center gap-2 rounded-lg bg-zinc-900 text-white py-2.5 text-sm font-semibold hover:bg-zinc-800 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                      Create account
+                    </button>
+                  </form>
+
+                  <div className="mt-5 pt-5 border-t border-zinc-200">
+                    <button
+                      onClick={() => {
+                        setFlow('password');
+                        setRegistrationToken(null);
+                        setOtpError(null);
+                      }}
+                      className="text-sm text-zinc-600 hover:text-zinc-900 transition"
+                    >
+                      ← Start over
+                    </button>
+                  </div>
+                </>
               ) : (
                 /* ============ CREDENTIAL ENTRY (password or email-code) ============ */
                 <>
@@ -309,7 +462,7 @@ export const LoginPage: React.FC = () => {
                   </h2>
                   <p className="text-sm text-zinc-500 mb-5">
                     {isSignup
-                      ? 'Join the verified campus network.'
+                      ? 'Enter your email — we\'ll send a one-time code, then you set your password.'
                       : 'Sign in with a password or a one-time email code.'}
                   </p>
 
@@ -346,24 +499,24 @@ export const LoginPage: React.FC = () => {
                       </div>
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
-                        Password{' '}
-                        {!isSignup && <span className="text-zinc-400 font-normal">— at least 8 characters</span>}
-                      </label>
-                      <div className="relative">
-                        <Lock className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                        <input
-                          type="password"
-                          required
-                          minLength={isSignup ? 8 : 1}
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder={isSignup ? 'At least 8 characters — or skip with a code below' : 'Your password'}
-                          className={`${inputCls} pl-9`}
-                        />
+                    {!isSignup && (
+                      <div>
+                        <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
+                          Password <span className="text-zinc-400 font-normal">— or use a one-time code below</span>
+                        </label>
+                        <div className="relative">
+                          <Lock className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="password"
+                            required
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Your password"
+                            className={`${inputCls} pl-9`}
+                          />
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     {isSignup && (
                       <div>
@@ -402,7 +555,7 @@ export const LoginPage: React.FC = () => {
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         <>
-                          {isSignup ? 'Create account' : 'Sign in'}
+                          {isSignup ? 'Continue — email me a code' : 'Sign in'}
                           <ArrowRight className="w-4 h-4" />
                         </>
                       )}

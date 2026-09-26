@@ -1130,17 +1130,20 @@ model Notice {
 // ============================================================================
 
 model OtpCode {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email         String
-  codeHash      String    @map("code_hash")
-  purpose       String
-  fullName      String?   @map("full_name")
-  requestedRole String?   @map("requested_role")
-  attempts      Int       @default(0)
-  consumedAt    DateTime? @map("consumed_at")
-  expiresAt     DateTime  @map("expires_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                 String
+  codeHash              String    @map("code_hash")
+  purpose               String
+  fullName              String?   @map("full_name")
+  requestedRole         String?   @map("requested_role")
+  /// Set once the registration token issued from THIS row was used to
+  /// create the account — a replayed token is rejected server-side.
+  registrationCompleted Boolean   @default(false) @map("registration_completed")
+  attempts              Int       @default(0)
+  consumedAt            DateTime? @map("consumed_at")
+  expiresAt             DateTime  @map("expires_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
 
   @@index([email, purpose])
   @@map("otp_codes")
