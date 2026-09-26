@@ -48,6 +48,7 @@ describe("Phase 4 - Live DB Auth Lifecycle & Token Security", () => {
   let userId: string;
   let refreshCookie: string;
   let accessToken: string;
+  let registrationToken: string;
 
   test("1. Direct signup without OTP verification is BLOCKED (422)", async () => {
     // Server-side enforcement: the OTP step cannot be bypassed by calling

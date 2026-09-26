@@ -28,6 +28,28 @@ describe("Profile update — passwordHash never leaks + avatarUrl persists", () 
     const address = server.address() as AddressInfo;
     baseUrl = `http://127.0.0.1:${address.port}`;
 
+    // OTP-first signup: request → verify → the registration token → the signup
+    const reqRes = await fetch(`${baseUrl}/api/v1/auth/otp/request`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: "avatar-leak-test@university.edu",
+        purpose: "signup",
+        fullName: "Avatar Leak Test",
+        requestedRole: "student",
+      }),
+    });
+    assert.equal(reqRes.status, 200);
+    const reqJson = (await reqRes.json()) as { devCode?: string };
+
+    const verifyRes = await fetch(`${baseUrl}/api/v1/auth/otp/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: "avatar-leak-test@university.edu", code: reqJson.devCode! }),
+    });
+    assert.equal(verifyRes.status, 200);
+    const verifyJson = (await verifyRes.json()) as { registrationToken: string };
+
     const signup = await fetch(`${baseUrl}/api/v1/auth/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -36,6 +58,7 @@ describe("Profile update — passwordHash never leaks + avatarUrl persists", () 
         password: "Password123!",
         fullName: "Avatar Leak Test",
         requestedRole: "student",
+        registrationToken: verifyJson.registrationToken,
       }),
     });
     assert.equal(signup.status, 201);

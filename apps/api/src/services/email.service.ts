@@ -1,4 +1,5 @@
 import { logger } from "../utils/logger.js";
+import nodemailer from "nodemailer";
 
 export interface EmailService {
   sendVerificationEmail(to: string, token: string): Promise<void>;
@@ -105,10 +106,73 @@ export class ResendEmailService implements EmailService {
   }
 }
 
+
+/**
+ * Gmail SMTP — free, NO domain verification needed, delivers to ANY
+ * recipient (500/day). Requires an App Password (Google Account →
+ * Security → 2-Step Verification → App passwords) — set
+ * SMTP_USER + SMTP_PASS in the env.
+ */
+export class GmailSmtpService implements EmailService {
+  private transporter: import("nodemailer").Transporter | null = null;
+
+  constructor(
+    private readonly user: string,
+    private readonly pass: string,
+  ) {}
+
+  private getTransport() {
+    if (!this.transporter) {
+      this.transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || "smtp.gmail.com",
+        port: Number(process.env.SMTP_PORT) || 465,
+        secure: true,
+        auth: { user: this.user, pass: this.pass },
+      });
+    }
+    return this.transporter!;
+  }
+
+  async sendOtpEmail(to: string, code: string): Promise<void> {
+    await this.getTransport().sendMail({
+      from: `UniCollab Campus <${this.user}>`,
+      to,
+      subject: "Your UniCollab verification code",
+      html: `<div style="font-family:Inter,system-ui,sans-serif;padding:24px"><h2 style="margin:0 0 12px">Your verification code</h2><p style="color:#555;margin:0 0 18px">Enter this code to continue — it expires in 10 minutes.</p><p style="font-size:32px;font-weight:800;letter-spacing:8px;color:#4f46e5;margin:0">${code}</p><p style="color:#999;font-size:12px;margin-top:18px">If you didn't request it, ignore this email.</p></div>`,
+    });
+  }
+
+  async sendVerificationEmail(to: string, token: string): Promise<void> {
+    await this.getTransport().sendMail({
+      from: `UniCollab Campus <${this.user}>`,
+      to,
+      subject: "Verify your email — UniCollab Campus",
+      html: `<div style="font-family:Inter,system-ui,sans-serif;padding:24px"><p>Click the link to verify your email:</p><p><a href="${buildVerifyLink(token)}">${buildVerifyLink(token)}</a></p></div>`,
+    });
+  }
+
+  async sendPasswordResetEmail(to: string, token: string): Promise<void> {
+    await this.getTransport().sendMail({
+      from: `UniCollab Campus <${this.user}>`,
+      to,
+      subject: "Reset your password — UniCollab Campus",
+      html: `<div style="font-family:Inter,system-ui,sans-serif;padding:24px"><p>Click the link to reset your password:</p><p><a href="${buildResetLink(token)}">${buildResetLink(token)}</a></p></div>`,
+    });
+  }
+}
+
 function createEmailService(): EmailService {
+  // Priority 1: Gmail SMTP (free, no domain verification — ANYONE can get
+  // the OTP). Priority 2: Resend (needs a verified domain for non-owner
+  // recipients). Fallback: MockEmailService (logs only — dev).
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+  if (smtpUser && smtpPass) {
+    return new GmailSmtpService(smtpUser, smtpPass);
+  }
+
   const apiKey = process.env.EMAIL_PROVIDER_API_KEY;
   const fromAddress = process.env.EMAIL_FROM_ADDRESS;
-
   if (apiKey && fromAddress) {
     return new ResendEmailService(apiKey, fromAddress);
   }
