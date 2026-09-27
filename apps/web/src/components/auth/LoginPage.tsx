@@ -126,7 +126,9 @@ export const LoginPage: React.FC = () => {
         body: {
           email: email.trim(),
           purpose,
-          ...(purpose === 'verify' ? {} : purpose === 'login' ? {} : {}),
+          ...(purpose === 'signup'
+            ? { fullName: fullName.trim(), requestedRole }
+            : {}),
         },
         skipAuthRetry: true,
       });
