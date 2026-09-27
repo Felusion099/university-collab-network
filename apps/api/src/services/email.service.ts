@@ -128,6 +128,11 @@ export class GmailSmtpService implements EmailService {
         port: Number(process.env.SMTP_PORT) || 465,
         secure: true,
         auth: { user: this.user, pass: this.pass },
+        // Fail fast — some hosts (Render's free tier) drop outbound SMTP;
+        // without these the send hangs and the request never returns
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 15_000,
       });
     }
     return this.transporter!;

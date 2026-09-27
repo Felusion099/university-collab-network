@@ -91,8 +91,7 @@ export async function requestOtp(input: {
     await emailService.sendOtpEmail(email, code);
   } catch (err) {
     // Non-blocking email side effect — LOG the delivery failure loudly
-    // (e.g. the provider's free-tier restriction: unverified domains can
-    // only receive at the account owner's address)
+    // (e.g. hosts that drop SMTP, or a provider's free-tier restriction)
     logger.warn(
       { email, error: (err as Error)?.message?.slice(0, 200) },
       "[otp] email delivery FAILED — the code exists but was not delivered",

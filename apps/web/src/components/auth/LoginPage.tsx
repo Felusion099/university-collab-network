@@ -532,15 +532,15 @@ export const LoginPage: React.FC = () => {
                       </div>
                     )}
 
-                    {(loginError || notice) && (
+                    {(loginError || notice || otpError) && (
                       <div
                         className={`rounded-lg px-3.5 py-2.5 text-xs leading-relaxed ${
-                          loginError
+                          (loginError || otpError)
                             ? 'bg-red-50 text-red-700 border border-red-200'
                             : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                         }`}
                       >
-                        {loginError ?? notice}
+                        {otpError ?? loginError ?? notice}
                       </div>
                     )}
 
