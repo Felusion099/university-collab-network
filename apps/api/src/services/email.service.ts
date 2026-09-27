@@ -166,10 +166,81 @@ export class GmailSmtpService implements EmailService {
   }
 }
 
+/**
+ * Brevo (ex-Sendinblue) — HTTPS API, free 300 emails/day, delivers to ANY
+ * recipient. Immune to hosts that drop outbound SMTP (Render's free tier)
+ * because it calls api.brevo.com over HTTPS. Set BREVO_API_KEY in the env.
+ */
+export class BrevoEmailService implements EmailService {
+  private static readonly API_URL = "https://api.brevo.com/v3/smtp/email";
+
+  constructor(
+    private readonly apiKey: string,
+    private readonly from: string,
+    private readonly fromName: string,
+  ) {}
+
+  private async send(subject: string, html: string, to: string): Promise<void> {
+    const res = await fetch(BrevoEmailService.API_URL, {
+      method: "POST",
+      headers: {
+        "api-key": this.apiKey,
+        "Content-Type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        sender: { name: this.fromName, email: this.from },
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`Brevo send failed (${res.status}): ${body.slice(0, 200)}`);
+    }
+  }
+
+  async sendOtpEmail(to: string, code: string): Promise<void> {
+    await this.send(
+      "Your UniCollab verification code",
+      `<div style="font-family:Inter,system-ui,sans-serif;padding:24px"><h2 style="margin:0 0 12px">Your verification code</h2><p style="color:#555;margin:0 0 18px">Enter this code to continue — it expires in 10 minutes.</p><p style="font-size:32px;font-weight:800;letter-spacing:8px;color:#4f46e5;margin:0">${code}</p><p style="color:#999;font-size:12px;margin-top:18px">If you didn't request it, ignore this email.</p></div>`,
+      to,
+    );
+  }
+
+  async sendVerificationEmail(to: string, token: string): Promise<void> {
+    await this.send(
+      "Verify your email — UniCollab Campus",
+      `<div style="font-family:Inter,system-ui,sans-serif;padding:24px"><p>Click the link to verify your email:</p><p><a href="${buildVerifyLink(token)}">${buildVerifyLink(token)}</a></p></div>`,
+      to,
+    );
+  }
+
+  async sendPasswordResetEmail(to: string, token: string): Promise<void> {
+    await this.send(
+      "Reset your password — UniCollab Campus",
+      `<div style="font-family:Inter,system-ui,sans-serif;padding:24px"><p>Click the link to reset your password:</p><p><a href="${buildResetLink(token)}">${buildResetLink(token)}</a></p></div>`,
+      to,
+    );
+  }
+}
+
 function createEmailService(): EmailService {
-  // Priority 1: Gmail SMTP (free, no domain verification — ANYONE can get
-  // the OTP). Priority 2: Resend (needs a verified domain for non-owner
-  // recipients). Fallback: MockEmailService (logs only — dev).
+  // Priority 1: Brevo (HTTPS API — immune to hosts that drop outbound SMTP,
+  // delivers to ANYONE, free 300/day). Priority 2: Gmail SMTP (free, no
+  // domain verification — works locally but some hosts block it).
+  // Priority 3: Resend (needs a verified domain for non-owner recipients).
+  // Fallback: MockEmailService (logs only — dev).
+  const brevoKey = process.env.BREVO_API_KEY;
+  if (brevoKey) {
+    return new BrevoEmailService(
+      brevoKey,
+      process.env.EMAIL_FROM_ADDRESS || process.env.SMTP_USER || "noreply@unicollab.app",
+      process.env.EMAIL_FROM_NAME || "UniCollab Campus",
+    );
+  }
+
   const smtpUser = process.env.SMTP_USER;
   const smtpPass = process.env.SMTP_PASS;
   if (smtpUser && smtpPass) {
