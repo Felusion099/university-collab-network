@@ -76,6 +76,8 @@ interface AppContextType {
   selectedProjectId: string | null;
   setSelectedProjectId: (id: string | null) => void;
   selectedCommunityId: string | null;
+  selectedSpaceId: string | null;
+  setSelectedSpaceId: (id: string | null) => void;
   setSelectedCommunityId: (id: string | null) => void;
   openCommunityDetails: (communityId: string) => void;
   selectedEventId: string | null;
@@ -209,6 +211,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode; mode?: 'live' | 
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedCommunityId, setSelectedCommunityId] = useState<string | null>(null);
+  const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(
     isLive ? null : 'conv1',
@@ -1230,6 +1233,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode; mode?: 'live' | 
         selectedProjectId,
         setSelectedProjectId,
         selectedCommunityId,
+        selectedSpaceId,
+        setSelectedSpaceId,
         setSelectedCommunityId,
         openCommunityDetails,
         selectedEventId,

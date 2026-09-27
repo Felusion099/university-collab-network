@@ -40,6 +40,46 @@ export type CreateConversationRequest = z.infer<typeof CreateConversationRequest
 export const InvitationTypeEnum = z.enum(["none", "project", "research_team"]);
 export type InvitationType = z.infer<typeof InvitationTypeEnum>;
 
+// ─── COLLABORATION SPACES (Phase CS) ────────────────────────────────────────
+
+export const SpaceTypeEnum = z.enum(["project", "community", "club", "research", "study_group", "startup", "other"]);
+export type SpaceType = z.infer<typeof SpaceTypeEnum>;
+
+export const MembershipModeEnum = z.enum(["open", "request_to_join", "invite_only"]);
+export type MembershipMode = z.infer<typeof MembershipModeEnum>;
+
+export const SpaceVisibilityEnum = z.enum(["public", "university_only", "connections_only", "private"]);
+export type SpaceVisibility = z.infer<typeof SpaceVisibilityEnum>;
+
+export const CreateSpaceRequestSchema = z.object({
+  name: z.string().min(1).max(120),
+  description: z.string().max(500).optional(),
+  type: SpaceTypeEnum.optional(),
+  visibility: SpaceVisibilityEnum.optional(),
+  membershipMode: MembershipModeEnum.optional(),
+  linkedProjectId: z.string().uuid().optional(),
+});
+export type CreateSpaceRequest = z.infer<typeof CreateSpaceRequestSchema>;
+
+export const UpdateSpaceRequestSchema = z.object({
+  name: z.string().min(1).max(120).optional(),
+  description: z.string().max(500).nullable().optional(),
+  visibility: SpaceVisibilityEnum.optional(),
+  membershipMode: MembershipModeEnum.optional(),
+});
+export type UpdateSpaceRequest = z.infer<typeof UpdateSpaceRequestSchema>;
+
+export const EditMessageRequestSchema = z.object({
+  body: z.string().min(1).max(4000),
+});
+export type EditMessageRequest = z.infer<typeof EditMessageRequestSchema>;
+
+export const PinMessageRequestSchema = z.object({
+  messageId: z.string().uuid(),
+  pinned: z.boolean(),
+});
+export type PinMessageRequest = z.infer<typeof PinMessageRequestSchema>;
+
 export const CreateMessageRequestSchema = z.object({
   body: z.string().min(1),
   attachmentUrl: z.string().url().optional(),

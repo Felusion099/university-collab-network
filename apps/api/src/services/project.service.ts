@@ -1,6 +1,11 @@
 import { projectRepository } from "../repositories/project.repository.js";
 import { userRepository } from "../repositories/user.repository.js";
 import { prisma } from "../repositories/prisma.js";
+import {
+  syncProjectMemberAddedTx,
+  syncProjectMemberRemovedTx,
+  createSpace,
+} from "./space.service.js";
 import { matchingService } from "./matching.service.js";
 import { NotFoundError, ForbiddenError, ConflictError } from "../utils/errors.js";
 import { buildPaginatedResponse, toPageParams } from "../utils/pagination.js";
@@ -37,7 +42,7 @@ export async function getById(id: string, viewerId?: string) {
 }
 
 export async function create(userId: string, input: CreateProjectRequest) {
-  return projectRepository.create(
+  const project = await projectRepository.create(
     {
       name: input.name,
       logoUrl: input.logoUrl,
@@ -60,6 +65,25 @@ export async function create(userId: string, input: CreateProjectRequest) {
     input.topicIds ?? [],
     input.skillsNeeded ?? [],
   );
+
+  // PROJECT ↔ SPACE SYNC (Phase CS): every newly created project
+  // automatically receives a Collaboration Space — the creator becomes
+  // Space Owner + active member, with the space's chat created on first
+  // access. The backfill migration covers projects created before this
+  // shipped; if the space creation ever fails here the project still
+  // exists (the backfill re-creates missing spaces idempotently).
+  try {
+    await createSpace(userId, {
+      name: input.name,
+      type: "project",
+      visibility: input.visibility,
+      membershipMode: "invite_only",
+      linkedProjectId: project.id,
+    });
+  } catch {
+    // Non-blocking: the idempotent backfill re-creates missing spaces
+  }
+  return project;
 }
 
 export async function update(userId: string, id: string, input: UpdateProjectRequest) {
@@ -102,7 +126,12 @@ export async function join(userId: string, projectId: string, roleOnProject?: st
   if (!project) throw new NotFoundError("Project not found");
   const alreadyMember = await projectRepository.isOwnerOrMember(projectId, userId);
   if (alreadyMember) throw new ConflictError("Already a member of this project");
-  return prisma.projectMember.create({ data: { projectId, userId, roleOnProject } });
+  // Transactional: project membership + linked Space access move together
+  return prisma.$transaction(async (tx) => {
+    const membership = await tx.projectMember.create({ data: { projectId, userId, roleOnProject } });
+    await syncProjectMemberAddedTx(tx, projectId, userId);
+    return membership;
+  });
 }
 
 export async function leave(userId: string, projectId: string) {
@@ -115,7 +144,12 @@ export async function leave(userId: string, projectId: string) {
   // does not exist in this model).
   const isOwner = await projectRepository.isOwner(projectId, userId);
   if (isOwner) throw new ForbiddenError("The project owner cannot leave their own project — archive it instead");
-  await prisma.projectMember.delete({ where: { projectId_userId: { projectId, userId } } });
+  // Transactional: membership removed + Space access revoked together.
+  // Historical messages are preserved — only active participation is lost.
+  await prisma.$transaction(async (tx) => {
+    await tx.projectMember.delete({ where: { projectId_userId: { projectId, userId } } });
+    await syncProjectMemberRemovedTx(tx, projectId, userId);
+  });
   return { left: true };
 }
 
@@ -129,7 +163,11 @@ export async function removeMemberByOwner(ownerId: string, projectId: string, us
     where: { projectId_userId: { projectId, userId } },
   });
   if (!membership) throw new NotFoundError("That user is not a member of this project");
-  await prisma.projectMember.delete({ where: { projectId_userId: { projectId, userId } } });
+  // Transactional: membership removed + Space access revoked together
+  await prisma.$transaction(async (tx) => {
+    await tx.projectMember.delete({ where: { projectId_userId: { projectId, userId } } });
+    await syncProjectMemberRemovedTx(tx, projectId, userId);
+  });
   return { removed: true };
 }
 
@@ -227,8 +265,11 @@ export async function addMemberByProfessor(
   const user = await userRepository.findById(userId);
   if (!user) throw new NotFoundError("User not found");
 
-  return prisma.projectMember.create({
-    data: { projectId, userId, roleOnProject },
+  // Transactional: project membership + linked Space access move together
+  return prisma.$transaction(async (tx) => {
+    const membership = await tx.projectMember.create({ data: { projectId, userId, roleOnProject } });
+    await syncProjectMemberAddedTx(tx, projectId, userId);
+    return membership;
   });
 }
 
@@ -256,7 +297,11 @@ export async function removeMemberByProfessor(
   });
   if (!membership) throw new NotFoundError("Membership not found");
 
-  await prisma.projectMember.delete({ where: { projectId_userId: { projectId, userId } } });
+  // Transactional: membership removed + Space access revoked together
+  await prisma.$transaction(async (tx) => {
+    await tx.projectMember.delete({ where: { projectId_userId: { projectId, userId } } });
+    await syncProjectMemberRemovedTx(tx, projectId, userId);
+  });
 }
 
 /**

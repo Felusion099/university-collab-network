@@ -17,6 +17,8 @@ import { AnnouncementsView } from './components/discovery/AnnouncementsView';
 import { AdminPanelView } from './components/admin/AdminPanelView';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { MessagesView } from './components/communication/MessagesView';
+import { SpacesView } from './components/spaces/SpacesView';
+import { SpaceDetailView } from './components/spaces/SpaceDetailView';
 import { SavedItemsView } from './components/dashboard/SavedItemsView';
 
 // Modals
@@ -67,7 +69,7 @@ const ToastHost: React.FC = () => {
 };
 
 const AppContent: React.FC = () => {
-  const { activeTab, isLoading, selectedProjectId, setSelectedProjectId, selectedCommunityId, setSelectedCommunityId, selectedEventId, setSelectedEventId } = useApp();
+  const { activeTab, isLoading, selectedProjectId, setSelectedProjectId, selectedCommunityId, setSelectedCommunityId, selectedEventId, setSelectedEventId, selectedSpaceId, setSelectedSpaceId } = useApp();
 
   return (
     <div className="min-h-screen bg-stone-50 text-zinc-900 flex flex-col font-sans selection:bg-zinc-900 selection:text-white">
@@ -82,6 +84,8 @@ const AppContent: React.FC = () => {
           <ProjectDetailView />
         ) : selectedCommunityId ? (
           <CommunityDetailView />
+        ) : selectedSpaceId ? (
+          <SpaceDetailView spaceId={selectedSpaceId} onBack={() => setSelectedSpaceId(null)} />
         ) : selectedEventId ? (
           <EventDetailView />
         ) : (
@@ -91,6 +95,7 @@ const AppContent: React.FC = () => {
             {activeTab === 'projects' && <ProjectDiscovery />}
               {activeTab === 'startups' && <StartupsView />}
             {activeTab === 'communities' && <CommunitiesDiscovery />}
+            {activeTab === 'spaces' && <SpacesView onOpenSpace={(id) => setSelectedSpaceId(id)} />}
             {activeTab === 'events' && <EventsDiscovery />}
             {activeTab === 'announcements' && <AnnouncementsView />}
             {activeTab === 'admin' && <AdminPanelView />}

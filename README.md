@@ -120,6 +120,22 @@ The UCN `Project` model gained optional Campus-UI fields (`category`,
 mirrored in `packages/shared-types`. The core UCN model is unchanged when they
 are absent.
 
+## Collaboration Spaces (Phase CS)
+
+One reusable space primitive — the existing `groups` table extended, not a new system:
+
+| Concern | Implementation |
+|---------|----------------|
+| Space model | `groups` + `type` (project/community/club/research/study_group/startup/other), `visibility` (reuses the Visibility enum), `membership_mode` (open/request_to_join/invite_only), `linked_project_id` (unique — one primary space per project) |
+| Project ↔ Space sync | Every project create auto-creates its Space (owner + member); join/leave/remove (owner AND professor flows) transactionally sync space membership + chat participants via `syncProjectMemberAddedTx`/`syncProjectMemberRemovedTx` — Project membership is the source of truth for project spaces |
+| Former members | Lose active access only — historical messages and participation history preserved (membership deletion never touches messages) |
+| Roles | owner (full control, promote/demote admins), admin (moderate, pin, approve requests), member (view, chat, mention, leave) — all enforced server-side in `space.service.ts` |
+| Chat | Reuses the EXISTING conversation architecture (messages, SSE realtime, unread) — the space's conversationId works with every /conversations endpoint. Added: message edit (sender-only), delete (sender or space admin/owner — moderation), pin/unpin (space admin/owner), @mentions rendered in the UI |
+| Discovery | `GET /spaces` lists public/university_only only (private never listed, never accessible by ID); `GET /spaces/by-project/:id` resolves the project's space in both directions |
+| Migration | `20260928000000_collaboration_spaces` — idempotent backfill: every existing project receives its Space + owner + member syncs (WHERE NOT EXISTS); existing groups preserved as invite_only (prior behavior) |
+
+API: `POST/GET/PATCH/DELETE /spaces`, `POST /spaces/:id/join`, `POST /spaces/:id/join-requests`, `PATCH /spaces/join-requests/:id/approve|reject`, `POST/DELETE /spaces/:id/admins/:userId`, `GET/POST /spaces/:id/pin`, `PATCH/DELETE /spaces/:id/messages/:messageId`.
+
 ## Known limits (by design, documented upstream)
 
 - Real-time messaging: **implemented** — SSE stream (`/conversations/:id/stream`)

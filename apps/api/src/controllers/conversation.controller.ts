@@ -53,6 +53,34 @@ export async function listMessages(req: Request, res: Response, next: NextFuncti
   }
 }
 
+export async function editMessage(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const message = await conversationService.editMessage(
+      req.user!.id,
+      req.params.id as string,
+      req.params.messageId as string,
+      req.body.body,
+    );
+    res.json(message);
+  } catch (err: unknown) {
+    next(err);
+  }
+}
+
+export async function deleteMessage(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    res.json(
+      await conversationService.deleteMessage(
+        req.user!.id,
+        req.params.id as string,
+        req.params.messageId as string,
+      ),
+    );
+  } catch (err: unknown) {
+    next(err);
+  }
+}
+
 export async function sendMessage(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const result = await conversationService.sendMessage(

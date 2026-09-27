@@ -458,6 +458,7 @@ model Project {
   conversations       Conversation[]
   members             ProjectMember[]
   joinRequests        JoinRequest[]
+  spaces              Group[]                  @relation("ProjectSpace")
   skillsNeeded        ProjectSkillNeeded[]
   topics              ProjectTopic[]
   creator             User                     @relation("ProjectCreatedBy", fields: [createdBy], references: [id])
@@ -720,6 +721,8 @@ model Message {
   isSeed          Boolean         @default(false) @map("is_seed")
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt @map("updated_at")
+  /// Set when a space admin/owner pins the message (direct chats can't pin).
+  pinnedAt        DateTime?       @map("pinned_at")
   conversation    Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender          User            @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
@@ -831,23 +834,39 @@ enum ResearcherType {
 /// Reused across profile_visibility and every *_visibility column in
 /// privacy_settings, per DATABASE_SCHEMA.md.
 model Group {
-  id           String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name         String
-  description  String?
-  avatarUrl    String?           @map("avatar_url")
-  ownerId      String            @map("owner_id") @db.Uuid
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String
+  description     String?
+  avatarUrl       String?           @map("avatar_url")
+  ownerId         String            @map("owner_id") @db.Uuid
   /// Personal groups default private — entry only via invitation/link
   /// (spec §35). Not exposed in global search.
-  isSeed       Boolean           @default(false) @map("is_seed")
-  createdAt    DateTime          @default(now()) @map("created_at")
-  updatedAt    DateTime          @updatedAt @map("updated_at")
-  owner        User              @relation("GroupOwner", fields: [ownerId], references: [id])
-  members      GroupMember[]
-  joinRequests JoinRequest[]
-  inviteLinks  GroupInviteLink[]
-  conversation Conversation?     @relation("GroupConversation")
+  isSeed          Boolean           @default(false) @map("is_seed")
+  /// COLLABORATION SPACE primitive (Phase CS): the reusable communication
+  /// layer for projects/communities/clubs/research/study groups/startups.
+  /// One architecture — no per-entity chat systems. For PROJECT spaces,
+  /// Project membership is the source of truth for active access; for
+  /// independent spaces, GroupMember stands alone. See DECISIONS.md.
+  type            SpaceType         @default(community)
+  /// Reuses the EXISTING Visibility enum (public/university_only/
+  /// connections_only/private) — no new visibility system.
+  visibility      Visibility        @default(private)
+  /// OPEN: eligible users join directly. REQUEST_TO_JOIN: pending →
+  /// owner/admin approves. INVITE_ONLY: owner/admin invitations/links only.
+  membershipMode  MembershipMode    @default(request_to_join) @map("membership_mode")
+  /// Set for PROJECT spaces — one primary space per project (@@unique).
+  linkedProjectId String?           @unique @map("linked_project_id")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  owner           User              @relation("GroupOwner", fields: [ownerId], references: [id])
+  members         GroupMember[]
+  joinRequests    JoinRequest[]
+  inviteLinks     GroupInviteLink[]
+  conversation    Conversation?     @relation("GroupConversation")
+  linkedProject   Project?          @relation("ProjectSpace", fields: [linkedProjectId], references: [id])
 
   @@index([ownerId])
+  @@index([type])
   @@map("groups")
 }
 
@@ -906,6 +925,7 @@ model JoinRequest {
 
 enum GroupMemberRole {
   owner
+  admin
   member
 }
 
@@ -918,6 +938,23 @@ enum JoinRequestStatus {
   pending
   accepted
   rejected
+}
+
+/// Collaboration Space kinds (Phase CS) — deliberately small.
+enum SpaceType {
+  project
+  community
+  club
+  research
+  study_group
+  startup
+  other
+}
+
+enum MembershipMode {
+  open
+  request_to_join
+  invite_only
 }
 
 enum Visibility {

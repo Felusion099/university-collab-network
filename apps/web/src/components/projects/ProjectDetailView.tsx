@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { apiFetch } from '../../services/api/client';
+import { SpaceChatPanel } from '../spaces/SpaceChatPanel';
+import { MessageSquare } from 'lucide-react';
 import { SkillBadge } from '../common/SkillBadge';
 import { VerificationBadge } from '../common/VerificationBadge';
 import {
@@ -41,6 +44,31 @@ export const ProjectDetailView: React.FC = () => {
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [detailTab, setDetailTab] = useState<'about' | 'chat'>('about');
+  const [space, setSpace] = useState<{ id: string; name: string; conversationId: string | null; isMember: boolean; myRole: 'owner' | 'admin' | 'member' | null } | null>(null);
+  const [spaceError, setSpaceError] = useState<string | null>(null);
+
+  // PROJECT ↔ SPACE (Phase CS): the project's Collaboration Space is fetched
+  // server-side (GET /spaces/by-project/:id) — chat access comes from the
+  // Project membership sync, never from client state.
+  useEffect(() => {
+    setSpace(null);
+    setSpaceError(null);
+    setDetailTab('about');
+    let cancelled = false;
+    apiFetch<{ id: string; name: string; conversationId: string | null; isMember: boolean; myRole: 'owner' | 'admin' | 'member' | null }>(
+      `/spaces/by-project/${selectedProjectId}`,
+    )
+      .then((res) => {
+        if (!cancelled) setSpace(res);
+      })
+      .catch((err) => {
+        if (!cancelled) setSpaceError(err instanceof Error ? err.message : 'Space unavailable');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProjectId]);
 
   const project = projects.find((p) => p.id === selectedProjectId);
 
@@ -356,6 +384,54 @@ export const ProjectDetailView: React.FC = () => {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Chat tab — the project's Collaboration Space (member-only,
+            access from the Project↔Space membership sync) */}
+        <div className="mt-6">
+          <div className="flex gap-1 mb-3">
+            {(['about', 'chat'] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setDetailTab(t)}
+                className={`px-4 py-2 rounded-lg text-xs font-medium capitalize transition-colors ${
+                  detailTab === t ? 'bg-zinc-900 text-white' : 'text-zinc-600 hover:bg-zinc-100'
+                }`}
+              >
+                {t === 'about' ? 'About' : 'Chat'}
+              </button>
+            ))}
+          </div>
+
+          {detailTab === 'chat' && (
+            <div className="bg-white rounded-2xl border border-zinc-200 h-[560px]">
+              {space?.isMember && space.conversationId ? (
+                <SpaceChatPanel
+                  spaceId={space.id}
+                  conversationId={space.conversationId}
+                  me={{ id: currentUser.id, role: space.myRole }}
+                  spaceName={space.name}
+                />
+              ) : spaceError && !space?.isMember ? (
+                <div className="flex items-center justify-center h-full text-xs text-zinc-500 px-8 text-center">
+                  {space?.myRole === null && !spaceError.includes('private')
+                    ? 'The project space chat is for project members.'
+                    : 'The project space chat is for project members — the space may be private.'}
+                </div>
+              ) : space?.isMember && !space.conversationId ? (
+                <div className="flex items-center justify-center h-full text-xs text-zinc-500">
+                  Chat is being set up — refresh in a moment.
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full text-xs text-zinc-500 px-8 text-center">
+                  <div>
+                    <MessageSquare className="w-6 h-6 text-zinc-300 mx-auto mb-2" />
+                    The project space chat is for project members.
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -209,7 +209,18 @@ describe("Phase 5 - Complete API Endpoints Integration Test Suite", () => {
         await prisma.projectSkillNeeded.deleteMany({ where: { projectId: { in: projectIds } } });
         await prisma.projectMember.deleteMany({ where: { projectId: { in: projectIds } } });
         await prisma.joinRequest.deleteMany({ where: { projectId: { in: projectIds } } });
+        // Collaboration Spaces (Phase CS) own/delete must run BEFORE the
+        // user deletes — groups_owner_id_fkey is RESTRICT on users.
+        await prisma.group.deleteMany({ where: { linkedProjectId: { in: projectIds } } });
         await prisma.project.deleteMany({ where: { id: { in: projectIds } } });
+      }
+      // Independent spaces created by the test users
+      const p5Spaces = await prisma.group.findMany({
+        where: { OR: [{ ownerId: { in: ids } }, { members: { some: { userId: { in: ids } } } }] },
+        select: { id: true },
+      });
+      if (p5Spaces.length > 0) {
+        await prisma.group.deleteMany({ where: { id: { in: p5Spaces.map((s) => s.id) } } });
       }
       const p5Teams = await prisma.researchTeam.findMany({
         where: { piUserId: { in: ids } },

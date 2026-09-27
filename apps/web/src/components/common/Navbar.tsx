@@ -65,6 +65,7 @@ export const Navbar: React.FC = () => {
     { id: 'projects', label: 'Projects', icon: Briefcase },
     { id: 'startups', label: 'Startups', icon: Rocket },
     { id: 'communities', label: 'Communities', icon: Layers },
+    { id: 'spaces', label: 'Spaces', icon: MessageSquare },
     { id: 'events', label: 'Events', icon: Calendar },
     { id: 'announcements', label: 'Council Notices', icon: Building2 },
     ...(currentUser.role === 'council_admin' ? [{ id: 'admin' as ActiveTab, label: 'Admin Panel', icon: ShieldCheck }] : []),

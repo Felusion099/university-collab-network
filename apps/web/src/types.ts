@@ -228,6 +228,7 @@ export type ActiveTab =
   | 'projects'
   | 'startups'
   | 'communities'
+  | 'spaces'
   | 'events'
   | 'announcements'
   | 'admin'

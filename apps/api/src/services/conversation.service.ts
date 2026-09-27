@@ -156,6 +156,58 @@ export async function listMessages(
   return buildPaginatedResponse(items, skip, take);
 }
 
+/** Sender-only message edit (existing convention: messages are immutable to
+ * everyone else; space admins moderate via delete instead). spaceId resolves
+ * the space's chat conversation (the space IS the chat context). */
+export async function editMessage(
+  userId: string,
+  spaceId: string,
+  messageId: string,
+  body: string,
+) {
+  const conversation = await prisma.conversation.findUnique({ where: { groupId: spaceId } });
+  if (!conversation) throw new NotFoundError("Space chat not found");
+  await assertParticipant(conversation.id, userId);
+  const message = await prisma.message.findUnique({ where: { id: messageId } });
+  if (!message || message.conversationId !== conversation.id)
+    throw new NotFoundError("Message not found");
+  if (message.senderId !== userId)
+    throw new ForbiddenError("You can only edit your own messages");
+  return prisma.message.update({ where: { id: messageId }, data: { body } });
+}
+
+/** Message deletion/moderation: the sender, OR a space admin/owner for the
+ * space's chat (project + group conversations — the space membership is the
+ * source of truth for moderation rights). Direct conversations: sender only. */
+export async function deleteMessage(
+  userId: string,
+  spaceId: string,
+  messageId: string,
+) {
+  const conversation = await prisma.conversation.findUnique({ where: { groupId: spaceId } });
+  if (!conversation) throw new NotFoundError("Space chat not found");
+  await assertParticipant(conversation.id, userId);
+  const message = await prisma.message.findUnique({ where: { id: messageId } });
+  if (!message || message.conversationId !== conversation.id)
+    throw new NotFoundError("Message not found");
+
+  let canModerate = message.senderId === userId;
+  if (!canModerate) {
+    const membership = await prisma.groupMember.findUnique({
+      where: { groupId_userId: { groupId: spaceId, userId } },
+    });
+    canModerate = !!membership && membership.role !== "member";
+  }
+  if (!canModerate)
+    throw new ForbiddenError("You can only delete your own messages");
+  await prisma.message.delete({ where: { id: messageId } });
+  messageBus.publish(conversation.id, {
+    id: messageId,
+    deleted: true,
+  });
+  return { deleted: true };
+}
+
 export async function sendMessage(
   userId: string,
   conversationId: string,
