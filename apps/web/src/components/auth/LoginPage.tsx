@@ -8,7 +8,7 @@ type Flow = 'password' | 'otp-code' | 'details';
 type CodePurpose = 'verify' | 'login' | 'reset';
 
 export const LoginPage: React.FC = () => {
-  const { login, signup, otpLogin, enterDemo, loginError } = useAuth();
+  const { login, signup, enterDemo, loginError } = useAuth();
 
   // Which credential flow the user is on
   const [flow, setFlow] = useState<Flow>('password');
@@ -175,9 +175,7 @@ export const LoginPage: React.FC = () => {
         setBusy(false);
         return;
       }
-      // The login purpose — the tokens are in the cookie/session; sign in
-      const ok = await otpLogin(email.trim(), code.trim());
-      if (!ok) setBusy(false);
+      setOtpError('Unexpected response — start again.');
     } catch (err) {
       setOtpError(describeError(err));
       setBusy(false);
@@ -562,17 +560,9 @@ export const LoginPage: React.FC = () => {
                     </button>
                   </form>
 
-                  {/* The one-time code option */}
+                  {/* Signup: the OTP flow IS the path (email → code → details).
+                      Login: forgot-password only — no one-time-code login. */}
                   <div className="mt-5 pt-5 border-t border-zinc-200">
-                    <button
-                      onClick={() => (isSignup ? sendCode('signup') : sendCode('login'))}
-                      disabled={busy || !email.trim()}
-                      className="w-full flex items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white text-zinc-800 py-2.5 text-sm font-semibold hover:bg-zinc-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                      title={isSignup ? 'Password-free: we email you a code' : 'Password-free sign-in'}
-                    >
-                      <KeyRound className="w-4 h-4 text-indigo-600" />
-                      {isSignup ? 'Sign up with a one-time code' : 'Email me a one-time code'}
-                    </button>
                     {!isSignup && (
                       <button
                         onClick={handleForgot}
